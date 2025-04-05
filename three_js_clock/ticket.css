@@ -24,6 +24,7 @@ html,body{
   align-items: center;
   justify-content: center;
   /* flex-direction: column; */
+  column-gap: 20px;
   height: 100%;
   width: 100%;
 }
@@ -128,6 +129,22 @@ html,body{
 
 .btn:hover {
 	background: white;
+}
+
+.buy-btn {
+    pointer-events: auto;
+	background: linear-gradient(375deg, #1cc7d0, #2ede98);
+	color: black;   
+    padding: 10px 15px;
+	text-decoration: none;
+	border-radius: 18px;
+	font-weight: bold;
+	transition: background 0.2s;
+}
+
+.buy-btn:hover {
+    border: solid 3px #2ede98;
+    background: white;
 }
 
 .top-left { 

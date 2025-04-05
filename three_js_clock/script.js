@@ -20,7 +20,7 @@ const mouse = new THREE.Vector2();
 let selectedClock = null;
 let isDragging = false;
 let clickTimeout;
-
+const clockRadius = 1; // Radius of the clock spheres
 
 const big_geometry = new THREE.SphereGeometry(3, 32, 32);
 const big_material = new THREE.MeshBasicMaterial({ color: Math.random() * 0xffffff });
@@ -54,43 +54,85 @@ for (let i = 0; i < numBalls; i++) {
     clockObjects.push(clock);
 }
 
-// Handle Mouse Down
-function onMouseDown(event) {
+// Handle Mouse Down for 3D object selection
+document.addEventListener('mousedown', (event) => {
+    // Avoid interaction with the card overlay
+    if (event.target.closest('#card-overlay')) {
+        return; // Ignore events if clicked on the card overlay
+    }
+
     mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
     mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-    
+
     raycaster.setFromCamera(mouse, camera);
     const intersects = raycaster.intersectObjects(clockObjects);
 
     if (intersects.length > 0) {
         selectedClock = intersects[0].object;
-        
+
+        // Check if the selected clock is behind the card
+        if (isClockBehindCard(selectedClock)) {
+            selectedClock = null; // Do not select the clock behind the card
+            return;
+        }
+
         clickTimeout = setTimeout(() => {
             isDragging = true;
-        }, 200); // Hold for 200ms to start dragging
+        }, 200); // Start dragging after 200ms
     }
-}
+});
 
-// Handle Mouse Up
-function onMouseUp(event) {
+// Handle Mouse Up for 3D object
+document.addEventListener('mouseup', () => {
     clearTimeout(clickTimeout);
-    
+
     if (!isDragging && selectedClock) {
-        console.log('Open settings for:', selectedClock.uuid);
+        showCard(); // Show the card if it's just a click (not a drag)
     }
-    
+
     isDragging = false;
     selectedClock = null;
-}
-const clockRadius = 1; // Radius of the clocks
-const boundary = {
-    left: -8 + clockRadius,   // Minimum x position
-    right: 8 - clockRadius,   // Maximum x position
-    top: 6 - clockRadius,     // Maximum y position
-    bottom: -6 + clockRadius  // Minimum y position
-};
+});
 
-// Check for Collisions and Apply Repulsion Force
+// Handle Mouse Move for dragging 3D object
+document.addEventListener('mousemove', (event) => {
+    if (isDragging && selectedClock) {
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+        raycaster.setFromCamera(mouse, camera);
+        const planeZ = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0); // Plane at z = 0
+        const targetPoint = new THREE.Vector3();
+
+        if (raycaster.ray.intersectPlane(planeZ, targetPoint)) {
+            selectedClock.position.x = targetPoint.x;
+            selectedClock.position.y = targetPoint.y;
+        }
+
+        // Prevent the clock from leaving the screen
+        clampPosition(selectedClock);
+
+        // After dragging, check collisions for the selected clock
+        checkCollisions();
+    }
+});
+
+// Function to determine if the clock is behind the card
+function isClockBehindCard(clock) {
+    const cardRect = document.getElementById("card-overlay").getBoundingClientRect();
+    const clockScreenPosition = clock.position.clone().project(camera);
+    const x = (clockScreenPosition.x + 1) * window.innerWidth / 2;
+    const y = (1 - clockScreenPosition.y) * window.innerHeight / 2;
+
+    // Check if the clock's screen position intersects with the card
+    if (x > cardRect.left && x < cardRect.right && y > cardRect.top && y < cardRect.bottom) {
+        return true; // The clock is behind the card
+    }
+
+    return false;
+}
+
+// Check for collisions between clocks and apply repulsion force
 function checkCollisions() {
     clockObjects.forEach((movingClock, index) => {
         for (let i = index + 1; i < clockObjects.length; i++) {
@@ -123,34 +165,18 @@ function checkCollisions() {
 
 // Ensure the clocks stay within the boundaries of the screen
 function clampPosition(clock) {
+    const boundary = {
+        left: -8 + clockRadius,   // Minimum x position
+        right: 8 - clockRadius,   // Maximum x position
+        top: 6 - clockRadius,     // Maximum y position
+        bottom: -6 + clockRadius  // Minimum y position
+    };
+
     // Check for boundary limits for both x and y axes
     if (clock.position.x < boundary.left) clock.position.x = boundary.left;
     if (clock.position.x > boundary.right) clock.position.x = boundary.right;
     if (clock.position.y < boundary.bottom) clock.position.y = boundary.bottom;
     if (clock.position.y > boundary.top) clock.position.y = boundary.top;
-}
-
-// Handle Mouse Move for Dragging
-function onMouseMove(event) {
-    if (isDragging && selectedClock) {
-        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-        raycaster.setFromCamera(mouse, camera);
-        const planeZ = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0); // Plane at z = 0
-        const targetPoint = new THREE.Vector3();
-
-        if (raycaster.ray.intersectPlane(planeZ, targetPoint)) {
-            selectedClock.position.x = targetPoint.x;
-            selectedClock.position.y = targetPoint.y;
-        }
-
-        // Prevent the clock from leaving the screen
-        clampPosition(selectedClock);
-
-        // After dragging, check collisions for the selected clock
-        checkCollisions();
-    }
 }
 
 // Animation Loop
@@ -161,10 +187,46 @@ function animate() {
 }
 animate();
 
+// Card drag handling (dragging the profile card)
+let dragOffsetX, dragOffsetY;
+const card = document.querySelector('.profile-card');
 
+card.addEventListener('mousedown', (e) => {
+    // Prevent default behavior to avoid selection and text highlighting
+    e.preventDefault();
 
-// Event Listeners
-document.addEventListener('mousedown', onMouseDown);
-document.addEventListener('mouseup', onMouseUp);
-document.addEventListener('mousemove', onMouseMove);
+    // Ignore dragging if the mouse event is on the card overlay
+    if (e.target.closest('#card-overlay')) {
+        return;
+    }
 
+    dragOffsetX = e.clientX - card.offsetLeft;
+    dragOffsetY = e.clientY - card.offsetTop;
+
+    // Ensure that the card is dragged using its top-left corner
+    card.style.transform = "none";
+
+    document.addEventListener('mousemove', dragMove);
+    document.addEventListener('mouseup', dragEnd);
+});
+
+function dragMove(e) {
+    card.style.left = (e.clientX - dragOffsetX) + 'px';
+    card.style.top = (e.clientY - dragOffsetY) + 'px';
+    card.style.position = 'absolute'; // Ensure it's positioned absolutely
+}
+
+function dragEnd() {
+    document.removeEventListener('mousemove', dragMove);
+    document.removeEventListener('mouseup', dragEnd);
+}
+
+// Show the profile card
+window.showCard = function () {
+    document.getElementById("card-overlay").style.display = "block";
+};
+
+// Hide the profile card
+window.hideCard = function () {
+    document.getElementById("card-overlay").style.display = "none";
+};
