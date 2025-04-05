@@ -45,18 +45,28 @@
   <div class="logged-in" id="logged-in" style="display: none;">
     <h2>Welcome, partner!</h2>
     <p>This is your dashboard. More coming soon!</p>
-  </div>
+    <button id="create-clock-button">Create Clock</button>
+</div>
+
 
   <div class="go home">
-    <a href="index.html" class="btn top-left">Go back</a>
+    <a href="index.html" class="btn top-left" onclick="location.reload()">Go back</a>
   </div>
 
+  <script type="module" src="script.js"></script>
   <script>
     // Simple "login" simulation
     document.getElementById("login-form").addEventListener("submit", function () {
       document.getElementById("form-container").style.display = "none";
       document.getElementById("logged-in").style.display = "block";
     });
+  </script>
+  <!-- <script>
+    document.getElementById("create-clock-button").addEventListener("click", function() {
+        createNewClock(7, 4, 0, 0.1, '/assets/wwf.jpg');
+    });
+  </script> -->
+
   </script>
 </body>
 </html>

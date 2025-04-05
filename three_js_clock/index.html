@@ -10,31 +10,33 @@
 <body>
   <div id="ui">
     <a href="ticket.html" class="btn top-right">Tickets</a>
+    <button id="connect-wallet" class="btn top-right-2">Connect your wallet</button>
     <a href="faq.html" class="btn bottom-right">Q&A</a>
     <a href="partner.html" class="btn top-left">Partners</a>
   </div>
 
   <!-- Card Overlay -->
-  <div id="card-overlay" onclick="hideCard()">
-    <div class="profile-card" onclick="event.stopPropagation()">
-        <div class="image">
-            <img src="assets/1.png" alt="Profile" class="profile-img" />
-        </div>
-        <div class="text-data">
-            <span class="name">Clock Owner</span>
-            <span class="job">Time Enthusiast</span>
-        </div>
-        <div class="media-buttons"></div>
-        <div class="buttons">
-            <button class="button">Use ticket</button>
-        </div>
-        <div class="analytics">
-            <div class="data"><i class="bx bx-heart"></i><span class="number">60k</span></div>
-            <div class="data"><i class="bx bx-message-rounded"></i><span class="number">20k</span></div>
-            <div class="data"><i class="bx bx-share"></i><span class="number">12k</span></div>
+    <div id="card-overlay" onclick="hideCard()">
+        <div class="profile-card" onclick="event.stopPropagation()">
+            <div class="image">
+                <img src="assets/1.png" alt="Profile" class="profile-img" />
+            </div>
+            <div class="text-data">
+                <span class="name">Clock Owner</span>
+                <span class="job">Time Enthusiast</span>
+            </div>
+            <div class="media-buttons"></div>
+            <div class="buttons">
+                <button class="button">Use ticket</button>
+            </div>
+            <div class="analytics">
+                <div class="data"><i class="bx bx-heart"></i><span class="number">60k</span></div>
+                <div class="data"><i class="bx bx-message-rounded"></i><span class="number">20k</span></div>
+                <div class="data"><i class="bx bx-share"></i><span class="number">12k</span></div>
+            </div>
         </div>
     </div>
-</div>
+    <button id="clearClocksButton">Clear Clocks</button>
 
 
   <script type="module" src="./script.js"></script>

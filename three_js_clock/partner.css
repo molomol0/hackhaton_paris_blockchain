@@ -147,3 +147,6 @@ body{
     color: #333;
   }
   
+  canvas {
+    display: none;
+}
