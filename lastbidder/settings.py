@@ -37,6 +37,13 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'channels',
+    'lastbidder',
+    'corsheaders',
+    'rest_framework',  # Required for JWT
+    'rest_framework_simplejwt',  # JWT support
+    'lastbidder.authService',  # Auth app for account creation, login, and JWT
+    'lastbidder.lobby',  # Lobby app for WebSocket consumers
 ]
 
 MIDDLEWARE = [
@@ -47,6 +54,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'corsheaders.middleware.CorsMiddleware',  # Enable CORS for APIs
 ]
 
 ROOT_URLCONF = 'lastbidder.urls'
@@ -121,3 +129,32 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Django REST Framework configuration
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',  # JWT support
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',  # Require authentication by default
+    ),
+}
+
+# Channels configuration
+ASGI_APPLICATION = 'lastbidder.asgi.application'
+
+# WebSocket settings
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            'hosts': [('127.0.0.1', 6379)],  # Redis server address
+        },
+    },
+}
+
+# CORS settings
+CORS_ALLOW_ALL_ORIGINS = True
+
+# Custom user model
+AUTH_USER_MODEL = 'authService.CustomUser'

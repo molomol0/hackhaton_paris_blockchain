@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connect to MetaMask</title>
+    <script src="https://cdn.jsdelivr.net/npm/web3/dist/web3.min.js"></script>
+</head>
+<body>
+    <h1>Connect to MetaMask</h1>
+
+    <button id="connect-button">Connect to MetaMask</button>
+    <p id="response"></p>
+
+    <script>
+        const connectButton = document.getElementById('connect-button');
+
+        async function connectMetaMask() {
+            try {
+                if (typeof window.ethereum === 'undefined') {
+                    alert('MetaMask is not installed! Please install MetaMask and try again.');
+                    return null;
+                }
+                const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
+                console.log('Connected wallet:', accounts[0]);
+                return accounts[0];
+            } catch (error) {
+                console.error('Error connecting to MetaMask:', error);
+                alert('Failed to connect to MetaMask. Please try again.');
+                return null;
+            }
+        }
+
+        async function signMessage(wallet, message) {
+            try {
+                const web3 = new Web3(window.ethereum);
+                const signature = await web3.eth.personal.sign(message, wallet);
+                console.log('Message signed successfully:', signature);
+                return signature;
+            } catch (error) {
+                console.error('Error signing message:', error);
+                alert('Failed to sign the message. Please ensure MetaMask is unlocked and try again.');
+                return null;
+            }
+        }
+
+        connectButton.addEventListener('click', async () => {
+            const wallet = await connectMetaMask();
+            if (!wallet) return;
+
+            const message = 'Connecting to LastBidder';
+            const signature = await signMessage(wallet, message);
+            if (!signature) return;
+
+            try {
+                const response = await fetch('/auth/connect/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ wallet, signature, message }),
+                });
+
+                const result = await response.json();
+                document.getElementById('response').textContent = JSON.stringify(result);
+            } catch (error) {
+                console.error('Error sending request to the server:', error);
+                alert('Failed to connect to the server. Please try again.');
+            }
+        });
+    </script>
+</body>
+</html>
