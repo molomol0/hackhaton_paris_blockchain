@@ -33,8 +33,11 @@
 
         async function signMessage(wallet, message) {
             try {
-                const web3 = new Web3(window.ethereum);
-                const signature = await web3.eth.personal.sign(message, wallet);
+                // Use ethereum.request with personal_sign
+                const signature = await ethereum.request({
+                    method: 'personal_sign',
+                    params: [message, wallet],
+                });
                 console.log('Message signed successfully:', signature);
                 return signature;
             } catch (error) {
@@ -53,7 +56,7 @@
             if (!signature) return;
 
             try {
-                const response = await fetch('/auth/connect/', {
+                const response = await fetch('http://localhost:8000/auth/connect/', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
