@@ -2,69 +2,144 @@
 pragma solidity ^0.8.0;
 
 contract LastBidderWin {
-    // Variables d'état basiques
     address public owner;
+    address public authority;
     uint256 public ticketPrice;
-    mapping(address => uint256) public userTickets;
     
-    // Événement pour l'achat de tickets
-    event TicketsPurchased(address indexed buyer, uint256 amount);
-    
-    // Constructeur initialisant le propriétaire et le prix du ticket
-    constructor(uint256 _ticketPrice) {
-        owner = msg.sender;
-        ticketPrice = _ticketPrice;
+    struct Clock {
+        uint256 id;
+        uint256 prize;
+        address lastBidder;
+        bool isActive;
+        bool isFinalized;
     }
+
+    mapping(address => uint256) public userTickets;
+    mapping(uint256 => Clock) public clocks;
+    mapping(uint256 => mapping(address => bool)) public hasParticipated;
+    uint256 public nextClockId = 1;
     
-    // Modificateur pour restreindre l'accès au propriétaire
+    event TicketsPurchased(address indexed buyer, uint256 amount);
+    event ClockCreated(uint256 indexed clockId, uint256 prize);
+    event ParticipationRecorded(uint256 indexed clockId, address indexed participant);
+    event ClockFinalized(uint256 indexed clockId, address winner, uint256 prize);
+    event AuthorityUpdated(address previousAuthority, address newAuthority);
+    
     modifier onlyOwner() {
         require(msg.sender == owner, "Only owner can call this function");
         _;
     }
     
-    // Fonction simple pour acheter des tickets
+    modifier onlyAuthority() {
+        require(msg.sender == authority, "Only authorized authority can call this function");
+        _;
+    }
+    
+    modifier clockExists(uint256 clockId) {
+        require(clockId < nextClockId, "Clock does not exist");
+        _;
+    }
+    
+    constructor() {
+        owner = msg.sender;
+        authority = 0x700F8bddc3999b830Fd0F36B67aA7527C166c112;
+        ticketPrice = 250000000000000000; // 0.25 FTN
+    }
+    
     function buyTickets(uint256 _amount) external payable {
-        // Vérifier que le montant est positif
         require(_amount > 0, "Must buy at least one ticket");
         
-        // Vérifier que le paiement est suffisant
         uint256 price = getTicketPrice(_amount);
         require(msg.value >= price, "Insufficient payment");
         
-        // Ajouter les tickets au compte de l'utilisateur
         userTickets[msg.sender] += _amount;
-        
-        // Rembourser l'excédent si nécessaire
+      
         if (msg.value > price) {
             payable(msg.sender).transfer(msg.value - price);
         }
         
-        // Émettre l'événement
         emit TicketsPurchased(msg.sender, _amount);
     }
     
-    // Fonction pour obtenir le prix total pour un nombre de tickets
-    function getTicketPrice(uint256 _amount) public view returns (uint256) {
-        // Simplement multiplication sans réduction
-        return ticketPrice * _amount;
+    function createClock(uint256 _prize) external payable onlyAuthority {
+        require(msg.value >= _prize, "Must provide the prize amount");
+        
+        uint256 clockId = nextClockId;
+        
+        clocks[clockId] = Clock({
+            id: clockId,
+            prize: _prize,
+            lastBidder: address(0),
+            isActive: true,
+            isFinalized: false
+        });
+        
+        nextClockId++;
+        
+        emit ClockCreated(clockId, _prize);
     }
     
-    // Fonction pour permettre au propriétaire de changer le prix du ticket
-    function setTicketPrice(uint256 _newPrice) external onlyOwner {
+    function recordParticipation(uint256 clockId, address participant) external onlyAuthority clockExists(clockId) {
+        Clock storage clock = clocks[clockId];
+        
+        require(clock.isActive, "Clock is not active");
+        require(!clock.isFinalized, "Clock is already finalized");
+        require(userTickets[participant] > 0, "User has no tickets");
+        
+        userTickets[participant]--;
+        
+        hasParticipated[clockId][participant] = true;
+        
+        clock.lastBidder = participant;
+        
+        emit ParticipationRecorded(clockId, participant);
+    }
+    
+    function finalizeClock(uint256 clockId, address winner) external onlyAuthority clockExists(clockId) {
+        Clock storage clock = clocks[clockId];
+        
+        require(clock.isActive, "Clock is not active");
+        require(!clock.isFinalized, "Clock is already finalized");
+        require(hasParticipated[clockId][winner], "Winner must have participated");
+        
+        clock.isActive = false;
+        clock.isFinalized = true;
+        
+        uint256 prize = clock.prize;
+        payable(winner).transfer(prize);
+        
+        emit ClockFinalized(clockId, winner, prize);
+    }
+    
+    function changeAuthority(address _newAuthority) external onlyOwner {
+        require(_newAuthority != address(0), "Invalid address");
+        
+        address oldAuthority = authority;
+        authority = _newAuthority;
+        
+        emit AuthorityUpdated(oldAuthority, _newAuthority);
+    }
+
+    function setTicketPrice(uint256 _newPrice) external onlyAuthority {
         ticketPrice = _newPrice;
     }
     
-    // Fonction pour vérifier le nombre de tickets d'un utilisateur
+    function getTicketPrice(uint256 _amount) public view returns (uint256) {
+        return ticketPrice * _amount;
+    }
+    
     function getTicketBalance(address _user) external view returns (uint256) {
         return userTickets[_user];
     }
     
-    // Fonction pour que le propriétaire puisse retirer les fonds
+    function hasUserParticipated(uint256 clockId, address user) external view clockExists(clockId) returns (bool) {
+        return hasParticipated[clockId][user];
+    }
+    
     function withdraw(uint256 _amount) external onlyOwner {
         require(_amount <= address(this).balance, "Insufficient balance");
         payable(owner).transfer(_amount);
     }
     
-    // Fonction de repli pour accepter les paiements
     receive() external payable {}
 }
