@@ -3,7 +3,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const connectBtn = document.getElementById('connect-wallet');
     
     // Adresse de votre contrat déployé
-    const CONTRACT_ADDRESS = "0xebCAc112eF871f9C2B127E1f347d70Ce6126Fa0C";
+    const CONTRACT_ADDRESS = "0x53E5c3d7d7000A78EC5aE62AEdB2303bF4BF3746";
     
     // ABI simplifiée du contrat
     const CONTRACT_ABI = [

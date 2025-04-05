@@ -6,16 +6,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const notification = document.getElementById('notification');
     
     // Adresse de votre contrat déployé
-    const CONTRACT_ADDRESS = "0xebCAc112eF871f9C2B127E1f347d70Ce6126Fa0C";
+    const CONTRACT_ADDRESS = "0x53E5c3d7d7000A78EC5aE62AEdB2303bF4BF3746";
     
     // ABI simplifiée du contrat
     const CONTRACT_ABI = [
-        "function clocks(uint256) view returns (uint256 id, string name, uint256 prize, uint256 deadline, address lastBidder, uint256 extensionTime, bool isActive)",
         "function userTickets(address) view returns (uint256)",
-        "function nextClockId() view returns (uint256)",
-        "function buyTickets(uint256 _amount) payable",
-        "function useTicket(uint256 clockId)",
-        "function calculatePrice(uint256 _ticketCount) view returns (uint256)"
+    "function buyTickets(uint256 _amount) payable",
+    "function getTicketPrice(uint256 _amount) view returns (uint256)"
     ];
     
     // Variable pour stocker le contrat
@@ -108,7 +105,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         try {
             // Calculer le prix
-            const price = await contract.calculatePrice(amount);
+            const price = await contract.getTicketPrice(amount);
             console.log("Prix calculé:", ethers.utils.formatEther(price), "ETH");
             
             // Confirmer l'achat
