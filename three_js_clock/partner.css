@@ -78,7 +78,7 @@ body{
 
 .form input.button{
   /* color: #fff; */
-  background: linear-gradient(375deg, #1cc7d0, #2ede98);;
+  background: linear-gradient(375deg, #1cc7d0, #2ede98);
   font-size: 1.2rem;
   font-weight: 500;
   letter-spacing: 1px;
@@ -88,7 +88,7 @@ body{
 }
 
 .form input.button:hover{
-  background: linear-gradient(375deg, #169ca3, #229e6c);;
+  background: linear-gradient(375deg, #169ca3, #229e6c);
 }
 
 .signup{
@@ -125,3 +125,25 @@ body{
 	top: 20px; 
 	left: 20px; 
 }
+
+.logged-in {
+    max-width: 600px;
+    margin: 80px auto;
+    padding: 2rem;
+    background: #ffffffc2;
+    border-radius: 8px;
+    text-align: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  }
+  
+  .logged-in h2 {
+    font-size: 2rem;
+    color: #2ede98;
+    margin-bottom: 1rem;
+  }
+  
+  .logged-in p {
+    font-size: 1.2rem;
+    color: #333;
+  }
+  

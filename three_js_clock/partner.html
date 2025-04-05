@@ -1,48 +1,62 @@
 <!DOCTYPE html>
-<!---Coding By CoderGirl | www.codinglabweb.com--->
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="X-UA-Compatible" content="ie=edge">
-  <title>Login & Registration Form | CoderGirl</title>
-  <!---Custom CSS File--->
-  <link rel="stylesheet" href="partner.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta http-equiv="X-UA-Compatible" content="ie=edge"/>
+  <title>Partners</title>
+  <link rel="stylesheet" href="partner.css" />
 </head>
 <body>
-    <div class="container">
-        <input type="checkbox" id="check">
-        <div class="login form">
-        <header>Login</header>
-        <form action="#">
-            <input type="text" placeholder="Enter your email">
-            <input type="password" placeholder="Enter your password">
-            <a href="#">Forgot password?</a>
-            <input type="button" class="button" value="Login">
-        </form>
-        <div class="signup">
-            <span class="signup">Don't have an account?
-            <label for="check">Signup</label>
-            </span>
-        </div>
-        </div>
-        <div class="registration form">
-        <header>Signup</header>
-        <form action="#">
-            <input type="text" placeholder="Enter your email">
-            <input type="password" placeholder="Create a password">
-            <input type="password" placeholder="Confirm your password">
-            <input type="button" class="button" value="Signup">
-        </form>
-        <div class="signup">
-            <span class="signup">Already have an account?
-            <label for="check">Login</label>
-            </span>
-        </div>
-        </div>
+  <div class="container" id="form-container">
+    <input type="checkbox" id="check" />
+    <div class="login form">
+      <header>Login</header>
+      <form id="login-form" action="javascript:void(0);">
+        <input type="text" placeholder="Enter your email" />
+        <input type="password" placeholder="Enter your password" />
+        <a href="#">Forgot password?</a>
+        <input type="submit" class="button" value="Login" />
+      </form>
+      <div class="signup">
+        <span class="signup">Don't have an account?
+          <label for="check">Signup</label>
+        </span>
+      </div>
     </div>
-    <div class="go home">
-        <a href="index.html" class="btn top-left">Go back</a>
+
+    <div class="registration form">
+      <header>Signup</header>
+      <form action="#">
+        <input type="text" placeholder="Enter your email" />
+        <input type="password" placeholder="Create a password" />
+        <input type="password" placeholder="Confirm your password" />
+        <input type="button" class="button" value="Signup" />
+      </form>
+      <div class="signup">
+        <span class="signup">Already have an account?
+          <label for="check">Login</label>
+        </span>
+      </div>
     </div>
+  </div>
+
+  <!-- This is the hidden div that shows when "logged in" -->
+  <div class="logged-in" id="logged-in" style="display: none;">
+    <h2>Welcome, partner!</h2>
+    <p>This is your dashboard. More coming soon!</p>
+  </div>
+
+  <div class="go home">
+    <a href="index.html" class="btn top-left">Go back</a>
+  </div>
+
+  <script>
+    // Simple "login" simulation
+    document.getElementById("login-form").addEventListener("submit", function () {
+      document.getElementById("form-container").style.display = "none";
+      document.getElementById("logged-in").style.display = "block";
+    });
+  </script>
 </body>
 </html>

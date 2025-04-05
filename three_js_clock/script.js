@@ -1,232 +1,406 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
-// Scene, Camera, Renderer
+// Scene setup
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.z = 10;
-const renderer = new THREE.WebGLRenderer();
+const originalCameraPosition = new THREE.Vector3(0, 0, 10);
+camera.position.copy(originalCameraPosition);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-// Controls (disabled permanently)
-const controls = new OrbitControls(camera, renderer.domElement);
-controls.enabled = false;  // Disable OrbitControls completely
+// Lighting
+const directionalLight = new THREE.DirectionalLight(0xffffff, 7);
+directionalLight.position.set(10, 10, 10);
+scene.add(directionalLight);
 
-// Clocks array
-const clockObjects = [];
+// OrbitControls
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.05;
+controls.rotateSpeed = 0.3;
+controls.zoomSpeed = 0.8;
+controls.minDistance = 5;
+controls.maxDistance = 20;
+controls.maxPolarAngle = Math.PI / 2;
+controls.minPolarAngle = Math.PI / 4;
+controls.maxAzimuthAngle = Math.PI / 4;
+controls.minAzimuthAngle = -Math.PI / 4;
+
+let restoringCamera = false;
+
+// Raycasting & interactions
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
+const clockObjects = [];
+const mixers = [];
+let big_mixer = null;
+let mainClock = null;
 let selectedClock = null;
 let isDragging = false;
-let clickTimeout;
-const clockRadius = 1; // Radius of the clock spheres
+let clickTimeout = null;
+let dragPlane = new THREE.Plane(); // Create a plane for dragging
 
-const big_geometry = new THREE.SphereGeometry(3, 32, 32);
-const big_material = new THREE.MeshBasicMaterial({ color: Math.random() * 0xffffff });
-const big_clock = new THREE.Mesh(big_geometry, big_material);
-big_clock.position.set(0, 0, 0);
-scene.add(big_clock);
-clockObjects.push(big_clock);
+// GLTF loader
+const loader = new GLTFLoader();
+const textureLoader = new THREE.TextureLoader();
 
-const numBalls = 10; // Total number of balls
-const circleRadius = 6; // Radius of the circle where balls will be positioned
-
-// Create balls in a circular arrangement
-for (let i = 0; i < numBalls; i++) {
-    // Calculate the angle for each ball
-    const angle = (i / numBalls) * (2 * Math.PI); // Evenly spaced on the circle
-
-    // Calculate the x and y position using polar coordinates
-    const x = circleRadius * Math.cos(angle);
-    const y = circleRadius * Math.sin(angle);
-
-    // Create the ball
-    const geometry = new THREE.SphereGeometry(1, 32, 32);
-    const material = new THREE.MeshBasicMaterial({ color: Math.random() * 0xffffff });
-    const clock = new THREE.Mesh(geometry, material);
-
-    // Set the ball's position on the circle
-    clock.position.set(x, y, 0);
-
-    // Add the ball to the scene and the clockObjects array
-    scene.add(clock);
-    clockObjects.push(clock);
-}
-
-// Handle Mouse Down for 3D object selection
-document.addEventListener('mousedown', (event) => {
-    // Avoid interaction with the card overlay
-    if (event.target.closest('#card-overlay')) {
-        return; // Ignore events if clicked on the card overlay
-    }
-
-    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-    raycaster.setFromCamera(mouse, camera);
-    const intersects = raycaster.intersectObjects(clockObjects);
-
-    if (intersects.length > 0) {
-        selectedClock = intersects[0].object;
-
-        // Check if the selected clock is behind the card
-        if (isClockBehindCard(selectedClock)) {
-            selectedClock = null; // Do not select the clock behind the card
-            return;
+// Load main clock
+loader.load('/assets/clock_low_poly/scene.gltf', (gltf) => {
+    const model = gltf.scene;
+    model.traverse((child) => {
+        if (child.isMesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
         }
+    });
 
-        clickTimeout = setTimeout(() => {
-            isDragging = true;
-        }, 200); // Start dragging after 200ms
+    if (gltf.animations.length > 0) {
+        big_mixer = new THREE.AnimationMixer(model);
+        gltf.animations.forEach((clip) => {
+            big_mixer.clipAction(clip).play();
+        });
     }
+
+    mainClock = new THREE.Group();
+    mainClock.add(model);
+    mainClock.scale.set(18, 18, 18);
+    scene.add(mainClock);
+    clockObjects.push(mainClock);
+    addCircularImageTo(mainClock, '/assets/bahamut.png', 0.15, 0.015, 0);
 });
 
-// Handle Mouse Up for 3D object
-document.addEventListener('mouseup', () => {
-    clearTimeout(clickTimeout);
-
-    if (!isDragging && selectedClock) {
-        showCard(); // Show the card if it's just a click (not a drag)
-    }
-
-    isDragging = false;
-    selectedClock = null;
-});
-
-// Handle Mouse Move for dragging 3D object
-document.addEventListener('mousemove', (event) => {
-    if (isDragging && selectedClock) {
-        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-        raycaster.setFromCamera(mouse, camera);
-        const planeZ = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0); // Plane at z = 0
-        const targetPoint = new THREE.Vector3();
-
-        if (raycaster.ray.intersectPlane(planeZ, targetPoint)) {
-            selectedClock.position.x = targetPoint.x;
-            selectedClock.position.y = targetPoint.y;
-        }
-
-        // Prevent the clock from leaving the screen
-        clampPosition(selectedClock);
-
-        // After dragging, check collisions for the selected clock
-        checkCollisions();
-    }
-});
-
-// Function to determine if the clock is behind the card
-function isClockBehindCard(clock) {
-    const cardRect = document.getElementById("card-overlay").getBoundingClientRect();
-    const clockScreenPosition = clock.position.clone().project(camera);
-    const x = (clockScreenPosition.x + 1) * window.innerWidth / 2;
-    const y = (1 - clockScreenPosition.y) * window.innerHeight / 2;
-
-    // Check if the clock's screen position intersects with the card
-    if (x > cardRect.left && x < cardRect.right && y > cardRect.top && y < cardRect.bottom) {
-        return true; // The clock is behind the card
-    }
-
-    return false;
-}
-
-// Check for collisions between clocks and apply repulsion force
-function checkCollisions() {
-    clockObjects.forEach((movingClock, index) => {
-        for (let i = index + 1; i < clockObjects.length; i++) {
-            const otherClock = clockObjects[i];
-
-            const movingBox = new THREE.Box3().setFromObject(movingClock);
-            const otherBox = new THREE.Box3().setFromObject(otherClock);
-
-            if (movingBox.intersectsBox(otherBox)) {
-                const direction = new THREE.Vector3();
-                direction.subVectors(movingClock.position, otherClock.position);  // Get direction
-                const distance = direction.length();
-
-                // Calculate pushback only if clocks are overlapping
-                if (distance < 2 * clockRadius) {  // This ensures clocks aren't overlapping
-                    direction.normalize();
-                    const pushbackAmount = (2 * clockRadius - distance) * 0.5;  // Push clocks apart
-
-                    // Move clocks apart along the direction vector
-                    movingClock.position.addScaledVector(direction, pushbackAmount);
-                    otherClock.position.addScaledVector(direction, -pushbackAmount);
-                }
-            }
-        }
-
-        // Ensure clock is within boundaries
-        clampPosition(movingClock);
+// Add circular image
+function addCircularImageTo(object, imagePath, size ,depth, adjust) {
+    const circleGeometry = new THREE.CircleGeometry(size, 50);
+    textureLoader.load(imagePath, (texture) => {
+        const circleMaterial = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide, transparent: true });
+        const circle = new THREE.Mesh(circleGeometry, circleMaterial);
+        circle.position.set(0, 0.03 + adjust, depth);
+        object.add(circle);
     });
 }
 
-// Ensure the clocks stay within the boundaries of the screen
-function clampPosition(clock) {
-    const boundary = {
-        left: -8 + clockRadius,   // Minimum x position
-        right: 8 - clockRadius,   // Maximum x position
-        top: 6 - clockRadius,     // Maximum y position
-        bottom: -6 + clockRadius  // Minimum y position
-    };
+// Create new clocks
+function createNewClock(size, speed, adjust, imagePath) {
+    loader.load('/assets/clock_low_poly/scene.gltf', (gltf) => {
+        const model = gltf.scene;
+        model.scale.set(size, size, size);
+        model.traverse((child) => {
+            if (child.isMesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
+            }
+        });
 
-    // Check for boundary limits for both x and y axes
-    if (clock.position.x < boundary.left) clock.position.x = boundary.left;
-    if (clock.position.x > boundary.right) clock.position.x = boundary.right;
-    if (clock.position.y < boundary.bottom) clock.position.y = boundary.bottom;
-    if (clock.position.y > boundary.top) clock.position.y = boundary.top;
+        const clockGroup = new THREE.Group();
+        clockGroup.add(model);
+
+        // Calculate the radius of the new clock (including some padding)
+        const newClockRadius = size + 1.5;
+        
+        // Define placement boundaries (smaller than the enforceBounds area)
+        const bounds = {
+            minX: -10 + newClockRadius,
+            maxX: 10 - newClockRadius,
+            minY: -5 + newClockRadius,
+            maxY: 5 - newClockRadius
+        };
+
+        let positionFound = false;
+        let bestPosition = null;
+        let minOverlap = Infinity;
+        const maxAttempts = 100;
+
+        // Try to find a position with minimal overlap
+        for (let attempts = 0; attempts < maxAttempts; attempts++) {
+            const x = bounds.minX + Math.random() * (bounds.maxX - bounds.minX);
+            const y = bounds.minY + Math.random() * (bounds.maxY - bounds.minY);
+            
+            let totalOverlap = 0;
+            let anyOverlap = false;
+            
+            for (const obj of clockObjects) {
+                const objRadius = obj === mainClock ? 3 : obj.scale.x;
+                const dist = Math.sqrt(
+                    Math.pow(obj.position.x - x, 2) + 
+                    Math.pow(obj.position.y - y, 2)
+                );
+                const minDist = newClockRadius + objRadius;
+                
+                if (dist < minDist) {
+                    anyOverlap = true;
+                    totalOverlap += minDist - dist;
+                }
+            }
+            
+            // If no overlap, use this position immediately
+            if (!anyOverlap) {
+                clockGroup.position.set(x, y, 0);
+                positionFound = true;
+                break;
+            }
+            
+            // Otherwise track the position with least overlap
+            if (totalOverlap < minOverlap) {
+                minOverlap = totalOverlap;
+                bestPosition = { x, y };
+            }
+        }
+
+        // If no perfect position found, use the best one we found
+        if (!positionFound && bestPosition) {
+            clockGroup.position.set(bestPosition.x, bestPosition.y, 0);
+            positionFound = true;
+        }
+
+        // If still no position (unlikely), place at a random edge
+        if (!positionFound) {
+            const side = Math.floor(Math.random() * 4);
+            switch(side) {
+                case 0: // top
+                    clockGroup.position.set(
+                        bounds.minX + Math.random() * (bounds.maxX - bounds.minX),
+                        bounds.maxY,
+                        0
+                    );
+                    break;
+                case 1: // right
+                    clockGroup.position.set(
+                        bounds.maxX,
+                        bounds.minY + Math.random() * (bounds.maxY - bounds.minY),
+                        0
+                    );
+                    break;
+                case 2: // bottom
+                    clockGroup.position.set(
+                        bounds.minX + Math.random() * (bounds.maxX - bounds.minX),
+                        bounds.minY,
+                        0
+                    );
+                    break;
+                case 3: // left
+                    clockGroup.position.set(
+                        bounds.minX,
+                        bounds.minY + Math.random() * (bounds.maxY - bounds.minY),
+                        0
+                    );
+                    break;
+            }
+        }
+
+        addCircularImageTo(clockGroup, imagePath, 0.9, 0.10, adjust);
+
+        const mixer = new THREE.AnimationMixer(model);
+        gltf.animations.forEach((clip) => {
+            mixer.clipAction(clip).setDuration(speed).play();
+        });
+        mixers.push(mixer);
+
+        scene.add(clockGroup);
+        clockObjects.push(clockGroup);
+        
+        // Resolve any remaining overlaps
+        resolveCollisions(clockGroup);
+    });
 }
 
-// Animation Loop
-function animate() {
-    requestAnimationFrame(animate);
-    checkCollisions();  // Continuously check for collisions for all clocks
-    renderer.render(scene, camera);
-}
-animate();
+// Create some clocks
+createNewClock(7, 4, 0, '/assets/wwf.jpg');
+createNewClock(5.2, 4, 0.1, '/assets/github_logo.png');
+createNewClock(6, 4, 0.2, '/assets/symbiosis.png');
 
-// Card drag handling (dragging the profile card)
-let dragOffsetX, dragOffsetY;
-const card = document.querySelector('.profile-card');
+// Mouse events
+// Add a flag to track if the mouse button is currently down
+let isMouseDown = false;
 
-card.addEventListener('mousedown', (e) => {
-    // Prevent default behavior to avoid selection and text highlighting
-    e.preventDefault();
+document.addEventListener('mousedown', (e) => {
+    if (e.target.closest('#card-overlay')) return;
 
-    // Ignore dragging if the mouse event is on the card overlay
-    if (e.target.closest('#card-overlay')) {
-        return;
+    // Set mouse down flag
+    isMouseDown = true;
+    
+    mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    raycaster.setFromCamera(mouse, camera);
+    const intersects = raycaster.intersectObjects(clockObjects, true);
+
+    if (intersects.length > 0) {
+        selectedClock = findParentGroup(intersects[0].object);
+        
+        // Create a drag plane aligned with the camera view
+        dragPlane.setFromNormalAndCoplanarPoint(
+            camera.getWorldDirection(new THREE.Vector3()).negate(),
+            selectedClock.position
+        );
+        
+        clickTimeout = setTimeout(() => {
+            isDragging = true;
+            controls.enabled = false;
+        }, 150);
     }
-
-    dragOffsetX = e.clientX - card.offsetLeft;
-    dragOffsetY = e.clientY - card.offsetTop;
-
-    // Ensure that the card is dragged using its top-left corner
-    card.style.transform = "none";
-
-    document.addEventListener('mousemove', dragMove);
-    document.addEventListener('mouseup', dragEnd);
+    
+    // Ensure restoringCamera is false while mouse is down
+    restoringCamera = false;
 });
 
-function dragMove(e) {
-    card.style.left = (e.clientX - dragOffsetX) + 'px';
-    card.style.top = (e.clientY - dragOffsetY) + 'px';
-    card.style.position = 'absolute'; // Ensure it's positioned absolutely
+// Helper function to find the parent group that's in clockObjects
+function findParentGroup(object) {
+    let current = object;
+    while (current && !clockObjects.includes(current)) {
+        current = current.parent;
+    }
+    return current;
 }
 
-function dragEnd() {
-    document.removeEventListener('mousemove', dragMove);
-    document.removeEventListener('mouseup', dragEnd);
+document.addEventListener('mouseup', () => {
+    clearTimeout(clickTimeout);
+    
+    // Update mouse down flag
+    isMouseDown = false;
+
+    if (isDragging) {
+        isDragging = false;
+        controls.enabled = true;
+    }
+
+    selectedClock = null;
+
+    // Only now, trigger the camera reset
+    restoringCamera = true;
+});
+
+function resolveCollisions(movedClock, depth = 0) {
+    if (depth > 10) return; // prevent infinite recursion
+
+    const movedRadius = movedClock === mainClock ? 3 : movedClock.scale.x;
+
+    for (const other of clockObjects) {
+        if (other === movedClock) continue;
+
+        const otherRadius = other === mainClock ? 3 : other.scale.x;
+        const dx = other.position.x - movedClock.position.x;
+        const dy = other.position.y - movedClock.position.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        const minDistance = movedRadius + otherRadius + 0.5;
+
+        if (distance < minDistance) {
+            const angle = Math.atan2(dy, dx);
+            const overlap = minDistance - distance;
+
+            // Push the other clock outward
+            other.position.x += Math.cos(angle) * overlap * 0.5;
+            other.position.y += Math.sin(angle) * overlap * 0.5;
+
+            enforceBounds(other); // ensure the clock stays within bounds
+            resolveCollisions(other, depth + 1); // recursive chain push to handle nested collisions
+        }
+    }
 }
 
-// Show the profile card
-window.showCard = function () {
-    document.getElementById("card-overlay").style.display = "block";
-};
 
-// Hide the profile card
-window.hideCard = function () {
-    document.getElementById("card-overlay").style.display = "none";
-};
+function enforceBounds(clock) {
+    const bounds = {
+        minX: -12,
+        maxX: 12,
+        minY: -6,
+        maxY: 6,
+    };
+    clock.position.x = Math.max(bounds.minX, Math.min(bounds.maxX, clock.position.x));
+    clock.position.y = Math.max(bounds.minY, Math.min(bounds.maxY, clock.position.y));
+}
+
+
+document.addEventListener('mousemove', (e) => {
+    if (!isDragging || !selectedClock) return;
+
+    mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    raycaster.setFromCamera(mouse, camera);
+
+    const point = new THREE.Vector3();
+    raycaster.ray.intersectPlane(dragPlane, point);
+
+    // Move selectedClock to the point
+    selectedClock.position.x = point.x;
+    selectedClock.position.y = point.y;
+    enforceBounds(selectedClock);
+    resolveCollisions(selectedClock);
+
+
+    // Push other clocks if they collide
+    for (const other of clockObjects) {
+        if (other === selectedClock) continue;
+    
+        const dx = other.position.x - selectedClock.position.x;
+        const dy = other.position.y - selectedClock.position.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+    
+        // Use custom radii
+        const selectedRadius = selectedClock === mainClock ? 3 : selectedClock.scale.x;
+        const otherRadius = other === mainClock ? 3 : other.scale.x;
+    
+        const minDistance = selectedRadius + otherRadius + 0.5;
+    
+        if (distance < minDistance) {
+            const angle = Math.atan2(dy, dx);
+            const targetX = selectedClock.position.x + Math.cos(angle) * minDistance;
+            const targetY = selectedClock.position.y + Math.sin(angle) * minDistance;
+    
+            other.position.x += (targetX - other.position.x) * 0.3;
+            other.position.y += (targetY - other.position.y) * 0.3;
+        }
+    }
+});
+
+// Animate
+const clock = new THREE.Clock();
+function animate() {
+    requestAnimationFrame(animate);
+    const delta = clock.getDelta();
+
+    if (big_mixer) big_mixer.update(delta * 0.05);
+    mixers.forEach((m) => m.update(delta * 0.2));
+
+    // Smooth camera reset ONLY when mouse is up and restoration is triggered
+    if (restoringCamera && !isMouseDown) {
+        camera.position.lerp(originalCameraPosition, 0.05);
+        controls.target.lerp(new THREE.Vector3(0, 0, 0), 0.05);
+        if (camera.position.distanceTo(originalCameraPosition) < 0.01) {
+            camera.position.copy(originalCameraPosition);
+            controls.target.set(0, 0, 0);
+            restoringCamera = false;
+        }
+    }
+
+    controls.update();
+    renderer.render(scene, camera);
+}
+
+animate();
+
+// Optional: Resize handler
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+//add a button to create new clocks
+const createClockButton = document.createElement('button');
+createClockButton.innerText = 'Create Clock';
+createClockButton.style.position = 'absolute';
+createClockButton.style.top = '10px';
+createClockButton.style.right = '10px';
+createClockButton.style.zIndex = 1000;
+createClockButton.style.backgroundColor = 'white';
+createClockButton.style.border = 'none';
+createClockButton.style.padding = '10px';
+createClockButton.style.cursor = 'pointer';
+createClockButton.addEventListener('click', () => {
+    createNewClock(7, 4, 0, '/assets/wwf.jpg');
+});
+document.body.appendChild(createClockButton);
