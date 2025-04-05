@@ -1,18 +1,73 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Three.js Clock Interaction</title>
-    <style> body { margin: 0; overflow: hidden; } </style>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Three.js Clock Interaction</title>
+  <link rel="stylesheet" href="style.css" />
+  <link href="https://unpkg.com/boxicons@2.1.2/css/boxicons.min.css" rel="stylesheet" />
 </head>
 <body>
-    <div id="ui">
-        <a href="ticket.html" class="btn top-right">🎟 Tickets</a>
-        <a href="faq.html" class="btn bottom-right">❓ FAQ</a>
-        <a href="partner.html" class="btn top-left">🤝 Partners</a>
+  <div id="ui">
+    <a href="ticket.html" class="btn top-right">Tickets</a>
+    <a href="faq.html" class="btn bottom-right">FAQ</a>
+    <a href="partner.html" class="btn top-left">Partners</a>
+  </div>
+
+  <!-- Card Overlay -->
+  <div id="card-overlay" onclick="hideCard()">
+    <div class="profile-card" onclick="event.stopPropagation()">
+        <div class="image">
+            <img src="assets/1.png" alt="Profile" class="profile-img" />
+        </div>
+        <div class="text-data">
+            <span class="name">Clock Owner</span>
+            <span class="job">Time Enthusiast</span>
+        </div>
+        <div class="media-buttons">
+        </div>
+        <div class="buttons">
+            <button class="button">Use ticket</button>
+        </div>
+        <div class="analytics">
+            <div class="data"><i class="bx bx-heart"></i><span class="number">60k</span></div>
+            <div class="data"><i class="bx bx-message-rounded"></i><span class="number">20k</span></div>
+            <div class="data"><i class="bx bx-share"></i><span class="number">12k</span></div>
+        </div>
     </div>
-    <script type="module" src="./script.js"></script>
+  </div>
+
+  <script type="module" src="./script.js"></script>
+  <script>
+    window.showCard = function () {
+      document.getElementById("card-overlay").style.display = "block";
+    };
+    window.hideCard = function () {
+      document.getElementById("card-overlay").style.display = "none";
+    };
+  </script>
+  <script>
+    let dragOffsetX, dragOffsetY;
+    const card = document.querySelector('.profile-card');
+  
+    card.addEventListener('mousedown', (e) => {
+      dragOffsetX = e.clientX - card.offsetLeft;
+      dragOffsetY = e.clientY - card.offsetTop;
+      document.addEventListener('mousemove', dragMove);
+      document.addEventListener('mouseup', dragEnd);
+    });
+  
+    function dragMove(e) {
+      card.style.left = (e.clientX - dragOffsetX) + 'px';
+      card.style.top = (e.clientY - dragOffsetY) + 'px';
+      card.style.position = 'absolute'; // Ensure it's absolutely positioned
+    }
+  
+    function dragEnd() {
+      document.removeEventListener('mousemove', dragMove);
+      document.removeEventListener('mouseup', dragEnd);
+    }
+  </script>
+  
 </body>
 </html>
