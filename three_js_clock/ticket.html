@@ -23,7 +23,7 @@
                     </p>
                     </div>
                     <div class="purchase">
-                        <a href="#" class="buy-btn">buy</a>
+                        <a href="#" class="buy-btn" data-amount="1">buy</a>
                     </div>
                 </div>
             </div>
@@ -42,7 +42,7 @@
                     </p>
                     </div>
                     <div class="purchase">
-                        <a href="#" class="buy-btn">buy</a>
+                        <a href="#" class="buy-btn" data-amount="10">buy</a>
                     </div>
                 </div>
             </div>
@@ -61,7 +61,7 @@
                     </p>
                     </div>
                     <div class="purchase">
-                        <a href="#" class="buy-btn">buy</a>
+                        <a href="#" class="buy-btn" data-amount="100">buy</a>
                     </div>
                 </div>
             </div>
@@ -80,13 +80,26 @@
                         </p>
                     </div>
                     <div class="purchase">
-                        <a href="#" class="buy-btn">buy</a>
+                        <a href="#" class="buy-btn" data-amount="1000">buy</a>
                     </div>
             </div>
         </div>
     <div class="go home">
         <a href="index.html" class="btn top-left">Go back</a>
+        <button id="connect-wallet" class="btn top-right">Connect your wallet</button>
+        <div id="wallet-info" style="display: none; position: fixed; top: 70px; right: 20px; background: rgba(0,0,0,0.7); padding: 10px; border-radius: 5px; color: white; z-index: 100;">
+          <p><strong>Adresse:</strong> <span id="wallet-address">-</span></p>
+          <p><strong>Tickets:</strong> <span id="user-tickets">-</span></p>
+        </div>
     </div>
 
+    <!-- Notification pour les transactions -->
+    <div id="notification" style="display: none; position: fixed; bottom: 20px; right: 20px; background: rgba(33, 186, 69, 0.9); color: white; padding: 15px; border-radius: 5px; z-index: 1000; max-width: 300px;"></div>
+
+    <!-- Ajouter ethers.js depuis un CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    
+    <!-- Script pour l'achat de tickets -->
+    <script src="buyTicket.js"></script>
    </body>
 </html>

@@ -10,7 +10,8 @@
 <body>
   <div id="ui">
     <a href="ticket.html" class="btn top-right">Tickets</a>
-    <a href="faq.html" class="btn bottom-right">Q&A</a>
+    <button id="connect-wallet" class="btn top-right-2">Connect your wallet</button>
+    <a href="faq.html" class="btn bottom-right">FAQ</a>
     <a href="partner.html" class="btn top-left">Partners</a>
   </div>
 
@@ -68,6 +69,7 @@
       document.removeEventListener('mouseup', dragEnd);
     }
   </script>
-  
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+  <script src="wallet.js"></script>
 </body>
 </html>
