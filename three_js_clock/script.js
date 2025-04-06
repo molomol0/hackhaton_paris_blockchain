@@ -62,6 +62,7 @@ class ClockMetadata {
         this.id = id;
         this.owner = owner;
         this.time = time;
+        this.click = 0;
         this.size = size;
         this.speed = speed;
         this.adjust = adjust;
