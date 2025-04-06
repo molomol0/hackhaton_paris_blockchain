@@ -697,8 +697,8 @@ function showCard() {
     const useTicketButton = document.getElementById('use-ticket-button');
 
     // Si c'est l'horloge principale (ID 0), configurer le gestionnaire du bouton Use Ticket
-    if (clockId === 0) {
-        useTicketButton.style.display = 'block'; // Afficher le bouton
+    // if (clockId === 0) {
+    //     useTicketButton.style.display = 'block'; // Afficher le bouton
 
         // Supprimer les gestionnaires d'événements existants
         const newUseTicketButton = useTicketButton.cloneNode(true);
@@ -726,20 +726,20 @@ function showCard() {
         // Appeler la fonction pour mettre à jour le texte
         updateButtonText();
 
-        // Ajouter un nouveau gestionnaire d'événements
-        newUseTicketButton.addEventListener('click', function () {
-            // Participer à l'horloge 1
-            if (typeof window.recordParticipation === 'function') {
-                window.recordParticipation(1);
-            } else {
-                console.error("La fonction recordParticipation n'est pas disponible");
-                alert("Erreur: Connexion au portefeuille non établie");
-            }
-        });
-    } else {
-        // Pour les autres horloges, on cache le bouton Use Ticket
-        useTicketButton.style.display = 'none';
-    }
+    //     // Ajouter un nouveau gestionnaire d'événements
+    //     newUseTicketButton.addEventListener('click', function () {
+    //         // Participer à l'horloge 1
+    //         if (typeof window.recordParticipation === 'function') {
+    //             window.recordParticipation(1);
+    //         } else {
+    //             console.error("La fonction recordParticipation n'est pas disponible");
+    //             alert("Erreur: Connexion au portefeuille non établie");
+    //         }
+    //     });
+    // } else {
+    //     // Pour les autres horloges, on cache le bouton Use Ticket
+    //     useTicketButton.style.display = 'none';
+    // }
 
     // Update owner name
     const nameElement = card.querySelector('.name');
