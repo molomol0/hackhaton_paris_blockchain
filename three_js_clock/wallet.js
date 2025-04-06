@@ -131,15 +131,63 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             wsSocket.onmessage = function(event) {
-                const data = JSON.parse(event.data);
-                console.log("Message reçu du serveur WebSocket:", data);
-                if (data.type === 'update')
-                    console.log("Mise à jour reçue:", data.update);
-                if (data.type === 'end_clock')
-                    alert("L'horloge est terminée");
-                    // Mettez à jour l'interface utilisateur ou effectuez d'autres actions
+                try {
+                    const data = JSON.parse(event.data);
+                    console.log("Message received from WebSocket:", data);
+                    
+                    // Check for event types and handle properly
+                    if (data.event === 'update') {
+                        console.log("Update received:", data.data);
+                        
+                        // Update clock time if window.updateClockTimeUI is available
+                        if (window.updateClockTimeUI && data.data.remaining_time !== undefined) {
+                            console.log("Calling updateClockTimeUI with:", data.data.remaining_time);
+                            window.updateClockTimeUI(data.data.remaining_time);
+                        } else {
+                            console.warn("Cannot update clock UI - missing function or data", {
+                                hasFunction: !!window.updateClockTimeUI,
+                                hasData: data.data.remaining_time !== undefined,
+                                remainingTime: data.data.remaining_time
+                            });
+                        }
+                    }
+                    else if (data.event === 'bid_notification') {
+                        console.log("Bid notification received:", data.data);
+                        
+                        // Update clock time if notification includes new time
+                        if (window.updateClockTimeUI && data.data.new_time !== undefined) {
+                            console.log("Updating clock from bid notification with time:", data.data.new_time);
+                            window.updateClockTimeUI(data.data.new_time);
+                        }
+                        
+                        // Show notification about who bid
+                        if (data.data.bidder) {
+                            const isCurrentUser = data.data.bidder === sessionStorage.getItem('userId');
+                            console.log(`Bid by ${isCurrentUser ? 'you' : data.data.bidder}`);
+                            
+                            // Maybe show a toast notification
+                            if (!isCurrentUser) {
+                                alert(`User ${data.data.bidder} placed a bid!`);
+                            }
+                        }
+                    }
+                    else if (data.event === 'end_clock') {
+                        console.log("L'horloge est terminée:", data.data);
+                        alert(`L'horloge est terminée! Dernier enchérisseur: ${data.data.last_bidder || 'Aucun'}`);
+                        
+                        // If the current user is the winner, show confetti
+                        if (data.data.last_bidder === sessionStorage.getItem('userId')) {
+                            confetti({
+                                particleCount: 200,
+                                spread: 100,
+                                origin: { x: 0.5, y: 0.5 }
+                            });
+                        }
+                    }
+                } catch (error) {
+                    console.error("Error processing WebSocket message:", error, event.data);
                 }
-            
+            };
 
             wsSocket.onclose = function(event) {
                 wsSocket = null;
@@ -217,39 +265,119 @@ async function afficherNombreHorloges() {
 window.afficherNombreHorloges = afficherNombreHorloges;
 
 async function recordParticipation(clockId) {
+    console.log(`Starting recordParticipation for clock ${clockId}`);
+    
+    // First, ensure we have a contract connection
     if (!contract) {
-        // S'assurer que le contrat est initialisé
-        const provider = new ethers.providers.Web3Provider(window.ethereum);
-        const signer = provider.getSigner();
-        contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+        try {
+            // Initialize the contract
+            const provider = new ethers.providers.Web3Provider(window.ethereum);
+            const signer = provider.getSigner();
+            contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+        } catch (error) {
+            console.error("Error initializing contract:", error);
+            alert("Could not initialize the contract. Please ensure MetaMask is connected.");
+            return false;
+        }
     }
     
     try {
+        // Check wallet connection
         const accounts = await window.ethereum.request({ method: 'eth_accounts' });
         if (accounts.length === 0) {
-            console.error("Aucun compte connecté");
-            return;
+            console.error("No wallet connected");
+            alert("Please connect your wallet first");
+            return false;
         }
         
         const userAddress = accounts[0];
         
-        // Vérifier si l'utilisateur a des tickets
+        // FIRST: Check if the user has tickets before doing anything else
+        console.log("Checking ticket balance for", userAddress);
         const ticketBalance = await contract.getTicketBalance(userAddress);
+        
         if (ticketBalance.toNumber() <= 0) {
-            alert("Vous n'avez pas de tickets. Achetez-en d'abord.");
-            return;
+            alert("You don't have any tickets. Please buy some first.");
+            return false;
         }
         
-        // Appeler la fonction recordParticipation du contrat
-        const tx = await contract.recordParticipation(clockId, userAddress);
-        await tx.wait();
+        console.log(`User has ${ticketBalance.toString()} tickets. Proceeding with bid.`);
         
-        console.log(`Participation enregistrée pour l'horloge ${clockId}`);
-        alert(`Vous avez utilisé un ticket pour participer à l'horloge ${clockId}!`);
-        return true;
+        // Next, check WebSocket connection for updating the UI
+        if (wsSocket === null || wsSocket.readyState !== WebSocket.OPEN) {
+            console.error("Cannot send WebSocket bid: No connection");
+            alert('WebSocket connection not available. Try refreshing the page.');
+            return false;
+        }
+        
+        // Get userId from session storage for the WebSocket message
+        const userId = sessionStorage.getItem('userId');
+        if (!userId) {
+            console.error("Cannot send WebSocket bid: No userId");
+            alert('User ID not found. Please reconnect your wallet.');
+            return false;
+        }
+        
+        // Proceed with the blockchain transaction
+        console.log(`Starting blockchain transaction for clock ${clockId}`);
+        
+        // Create transaction but don't wait for full confirmation
+        try {
+            // Call the recordParticipation function on the contract
+            console.log(`Calling blockchain recordParticipation for clock ${clockId} with address ${userAddress}`);
+            const tx = await contract.recordParticipation(clockId, userAddress);
+            console.log(`Transaction initiated: ${tx.hash}`);
+            
+            // Once the transaction is SENT (not yet confirmed), send the WebSocket bid
+            // This updates the UI immediately without waiting for blockchain confirmation
+            const bidMessage = JSON.stringify({
+                event: 'bid', 
+                data: { 
+                    userId: userId,
+                    transactionHash: tx.hash 
+                }
+            });
+            console.log('Sending bid WebSocket message:', bidMessage);
+            wsSocket.send(bidMessage);
+            
+            // Show confetti effect after sending bid message
+            if (typeof confetti === 'function') {
+                confetti({
+                    particleCount: 150,
+                    spread: 80,
+                    origin: { x: 0.5, y: 0.6 }
+                });
+            }
+            
+            // Wait for confirmation in the background
+            tx.wait().then(receipt => {
+                console.log(`Transaction confirmed in block ${receipt.blockNumber}`);
+                
+                // Optional: Send confirmation to WebSocket
+                if (wsSocket && wsSocket.readyState === WebSocket.OPEN) {
+                    wsSocket.send(JSON.stringify({
+                        event: 'transaction_confirmed',
+                        data: {
+                            userId: userId,
+                            transactionHash: tx.hash,
+                            clockId: clockId
+                        }
+                    }));
+                }
+            }).catch(error => {
+                console.error("Transaction confirmation failed:", error);
+                // Optionally notify the user
+            });
+            
+            return true;
+        } catch (txError) {
+            console.error("Transaction error:", txError);
+            alert("Error sending transaction: " + txError.message);
+            return false;
+        }
     } catch (error) {
-        console.error("Erreur lors de l'enregistrement de la participation:", error);
-        alert("Erreur lors de l'utilisation du ticket: " + error.message);
+        console.error("Error recording participation:", error);
+        alert("Error using ticket: " + error.message);
         return false;
     }
 }

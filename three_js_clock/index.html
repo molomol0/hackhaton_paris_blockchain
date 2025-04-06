@@ -162,21 +162,40 @@
         document.addEventListener('DOMContentLoaded', () => {
             const useTicketBtn = document.getElementById("use-ticket-button");
     
-            useTicketBtn.addEventListener("click", () => {
-                confetti({
-                    particleCount: 150,
-                    spread: 80,
-                    origin: { x: 0.5 },
-                    origin: { y: 0.6 },
-                    origin: { z: 99999}
-                });
-                const wsSocket = getWebSocket(); // Dynamically get the WebSocket instance
-      console.log('bid wsSocket', wsSocket);
-      if (wsSocket === null) {
-        alert('Please connect your wallet first.');
-        return;
-      }
-      wsSocket.send(JSON.stringify({event: 'bid', data: ""}));
+            // Update the ticket button event listener to use the enhanced recordParticipation function
+            useTicketBtn.addEventListener("click", async () => {
+                console.log('Use ticket button clicked');
+                
+                // Add a loading indicator to the button
+                const originalText = useTicketBtn.textContent;
+                useTicketBtn.textContent = "Processing...";
+                useTicketBtn.disabled = true;
+                
+                try {
+                    if (typeof window.recordParticipation === 'function') {
+                        // This function now checks ticket balance before proceeding
+                        const result = await window.recordParticipation(1);
+                        
+                        if (result) {
+                            console.log("Bid successfully initiated");
+                            // The UI update will happen through WebSocket messages
+                        } else {
+                            console.error("Failed to initiate bid");
+                            useTicketBtn.textContent = originalText;
+                            useTicketBtn.disabled = false;
+                        }
+                    } else {
+                        console.error("recordParticipation function not available");
+                        alert("Error: Wallet connection not established");
+                        useTicketBtn.textContent = originalText;
+                        useTicketBtn.disabled = false;
+                    }
+                } catch (error) {
+                    console.error("Error processing bid:", error);
+                    alert("Error: " + error.message);
+                    useTicketBtn.textContent = originalText;
+                    useTicketBtn.disabled = false;
+                }
             });
         });
     </script>    
