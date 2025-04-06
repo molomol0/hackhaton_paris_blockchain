@@ -170,6 +170,26 @@ class LobbyConsumer(AsyncWebsocketConsumer):
 			}
 		}))
 
+	async def check_clock_status(self, data):
+		"""Check if the clock is still active and has time remaining"""
+		userId = data.get('userId', self.userId) if isinstance(data, dict) else self.userId
+		
+		print(f'User {userId} checking clock status')
+		
+		async with my_clock.lock:
+			remaining_time = my_clock.remaining_time
+			is_active = my_clock.is_active
+		
+		# Send a response back to the client
+		await self.send(text_data=json.dumps({
+			"event": "clock_status_response",
+			"data": {
+				"remaining_time": remaining_time,
+				"is_active": is_active,
+				"can_bid": remaining_time > 0 and is_active
+			}
+		}))
+
 	async def process_event(self, text_data):
 		try:
 			text_data_json = json.loads(text_data)
@@ -181,7 +201,8 @@ class LobbyConsumer(AsyncWebsocketConsumer):
 				'paddle_moved': self.send_lobby_message,
 				'connect': self.first_msg,
 				'bid': self.bid,
-				'transaction_confirmed': self.transaction_confirmed
+				'transaction_confirmed': self.transaction_confirmed,
+				'check_clock_status': self.check_clock_status
 			}
 
 			# Get the handler function from the dictionary, default to handle_unknown_event

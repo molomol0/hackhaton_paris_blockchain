@@ -267,21 +267,60 @@ window.afficherNombreHorloges = afficherNombreHorloges;
 async function recordParticipation(clockId) {
     console.log(`Starting recordParticipation for clock ${clockId}`);
     
-    // First, ensure we have a contract connection
-    if (!contract) {
-        try {
-            // Initialize the contract
-            const provider = new ethers.providers.Web3Provider(window.ethereum);
-            const signer = provider.getSigner();
-            contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-        } catch (error) {
-            console.error("Error initializing contract:", error);
-            alert("Could not initialize the contract. Please ensure MetaMask is connected.");
-            return false;
-        }
+    // FIRST: Check if the clock has already ended (time = 0)
+    const mainClock = window.getClockById && window.getClockById(0);
+    const clockMetadata = mainClock && window.getClockMetadata && window.getClockMetadata(0);
+    
+    if (clockMetadata && clockMetadata.time <= 0) {
+        console.error("Cannot bid: Clock has already ended");
+        alert("La session est terminée! L'horloge est à zéro.");
+        return false;
     }
     
+    // Check if WebSocket connection exists
+    if (wsSocket === null || wsSocket.readyState !== WebSocket.OPEN) {
+        console.error("Cannot send WebSocket bid: No connection");
+        alert('WebSocket connection not available. Try refreshing the page.');
+        return false;
+    }
+    
+    // Get userId for the WebSocket message
+    const userId = sessionStorage.getItem('userId');
+    if (!userId) {
+        console.error("Cannot send WebSocket bid: No userId");
+        alert('User ID not found. Please reconnect your wallet.');
+        return false;
+    }
+    
+    // SECOND: Verify with backend that clock is still active
     try {
+        // Send a pre-check request to verify the clock is active
+        const preCheckMessage = JSON.stringify({
+            event: 'check_clock_status',
+            data: { userId: userId }
+        });
+        
+        console.log('Sending clock status check:', preCheckMessage);
+        wsSocket.send(preCheckMessage);
+        
+        // Wait for response - we can implement a proper response handler, 
+        // but for now we'll just proceed with caution
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+        // Then, ensure we have a contract connection
+        if (!contract) {
+            try {
+                // Initialize the contract
+                const provider = new ethers.providers.Web3Provider(window.ethereum);
+                const signer = provider.getSigner();
+                contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+            } catch (error) {
+                console.error("Error initializing contract:", error);
+                alert("Could not initialize the contract. Please ensure MetaMask is connected.");
+                return false;
+            }
+        }
+        
         // Check wallet connection
         const accounts = await window.ethereum.request({ method: 'eth_accounts' });
         if (accounts.length === 0) {
@@ -292,7 +331,7 @@ async function recordParticipation(clockId) {
         
         const userAddress = accounts[0];
         
-        // FIRST: Check if the user has tickets before doing anything else
+        // Check if the user has tickets before doing anything else
         console.log("Checking ticket balance for", userAddress);
         const ticketBalance = await contract.getTicketBalance(userAddress);
         
@@ -302,21 +341,6 @@ async function recordParticipation(clockId) {
         }
         
         console.log(`User has ${ticketBalance.toString()} tickets. Proceeding with bid.`);
-        
-        // Next, check WebSocket connection for updating the UI
-        if (wsSocket === null || wsSocket.readyState !== WebSocket.OPEN) {
-            console.error("Cannot send WebSocket bid: No connection");
-            alert('WebSocket connection not available. Try refreshing the page.');
-            return false;
-        }
-        
-        // Get userId from session storage for the WebSocket message
-        const userId = sessionStorage.getItem('userId');
-        if (!userId) {
-            console.error("Cannot send WebSocket bid: No userId");
-            alert('User ID not found. Please reconnect your wallet.');
-            return false;
-        }
         
         // Proceed with the blockchain transaction
         console.log(`Starting blockchain transaction for clock ${clockId}`);

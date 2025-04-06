@@ -198,7 +198,7 @@ function createNewClock(size, speed, adjust, depth, imagePath, owner = "default"
 
             let positionFound = false;
             let bestPosition = null;// After creating mainClock:
-            createTimeDisplay(mainClock, 200000, 0.015);
+            // createTimeDisplay(mainClock, 200000, 0.015);
             updateTimeDisplay(mainClock, 200000, true); // Make it transparent
             let minOverlap = Infinity;
             const maxAttempts = 100;
@@ -356,6 +356,11 @@ function createTimeDisplay(clockGroup, initialTime = 0, depth = 0) {
     if (renderer.capabilities) {
         texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
     }
+    texture.needsUpdate = true; // Ensure texture updates immediately
+
+    // Immediately clear the canvas completely
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(-50, -50, width + 100, height + 100);
 
     // Create plane
     const planeWidth = isMainClock ? 1.5 : 2.0;
@@ -396,7 +401,7 @@ function createTimeDisplay(clockGroup, initialTime = 0, depth = 0) {
     return plane;
 }
 
-// Modified updateTimeDisplay with null checks
+// Modified updateTimeDisplay for aggressive canvas clearing
 function updateTimeDisplay(clockGroup, time) {
     if (!clockGroup || !clockGroup.userData || !clockGroup.userData.timeDisplay) {
         console.error("Cannot update time display - invalid clockGroup or missing timeDisplay");
@@ -406,22 +411,19 @@ function updateTimeDisplay(clockGroup, time) {
     const { canvas, ctx, texture, isMainClock, width, height } = clockGroup.userData.timeDisplay;
     const formattedTime = formatTime(time);
 
-    // Clear canvas
-    ctx.clearRect(0, 0, width, height);
+    // Aggressive canvas clearing with a large margin
+    ctx.clearRect(-50, -50, width + 100, height + 100);
 
-    // Set text properties - change color if critical
     const fontSize = isMainClock ? 400 : 48;
     ctx.font = `bold ${fontSize}px 'Arial', sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
-    // Change color to flashing red if time is critical
     const metadata = clockMetadataMap.get(clockGroup.userData.id);
     const isCritical = metadata && metadata.time <= 30;
 
     if (isCritical) {
         console.log("Critical time detected for clock ID:", clockGroup.userData.id);
-        // Flashing effect
         const flashSpeed = 10;
         const flashIntensity = 0.5 + 0.5 * Math.sin(clock.getElapsedTime() * flashSpeed);
         ctx.fillStyle = `rgba(255, ${Math.floor(100 * flashIntensity)}, ${Math.floor(100 * flashIntensity)}, 0.9)`;
@@ -429,73 +431,62 @@ function updateTimeDisplay(clockGroup, time) {
         ctx.fillStyle = 'rgba(255, 0, 0, 0.9)';
     }
 
-    // Draw text
     ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
-    ctx.lineWidth = 6;
+    ctx.lineWidth = isMainClock ? 10 : 6; // Thicker outline for main clock
     ctx.strokeText(formattedTime, width / 2, height / 2);
     ctx.fillText(formattedTime, width / 2, height / 2);
 
-    // Make sure the texture updates
     texture.needsUpdate = true;
 }
 
+// Modified updateCriticalAnimation for aggressive canvas clearing
 function updateCriticalAnimation(clockGroup, delta) {
     if (!clockGroup.userData?.id) return;
 
     const metadata = clockMetadataMap.get(clockGroup.userData.id);
     if (!metadata) return;
 
-    // Check if time is critical (below 30 seconds)
     const isNowCritical = metadata.time <= 30;
 
-    // Only proceed if state changed or we're in critical mode
     if (isNowCritical || metadata.isCritical) {
         metadata.isCritical = isNowCritical;
 
         if (isNowCritical) {
-            // Calculate pulse effect (0.8-1.2 of original size)
             const clockScale = 0.3;
-            
-            // Create a reference to the timeDisplay object and its context
+
             const timeDisplay = clockGroup.userData.timeDisplay;
             if (timeDisplay) {
                 const ctx = timeDisplay.ctx;
                 const width = timeDisplay.width;
                 const height = timeDisplay.height;
-                
-                // Clear the canvas completely first
-                ctx.clearRect(0, 0, width + 20, height + 20);
-                
-                // make the timer font pulse
+
+                ctx.clearRect(-50, -50, width + 100, height + 100);
+
                 const fontSize = 48 + 20 * Math.sin(clock.getElapsedTime() * 5);
                 ctx.font = `bold ${fontSize}px 'Arial', sans-serif`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                
+
                 ctx.fillStyle = 'rgba(255, 0, 0, 0.9)';
                 ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
                 ctx.lineWidth = 6;
-                
-                // Draw the time with the formatted value
+
                 const formattedTime = formatTime(metadata.time);
                 ctx.strokeText(formattedTime, width / 2, height / 2);
                 ctx.fillText(formattedTime, width / 2, height / 2);
-                
+
                 timeDisplay.texture.needsUpdate = true;
             }
 
-            // Apply pulsing effect
             clockGroup.scale.set(
                 metadata.originalSize * clockScale,
                 metadata.originalSize * clockScale,
                 metadata.originalSize * clockScale
             );
 
-            // Add slight random rotation for shiver effect
             clockGroup.rotation.z = (Math.random() - 0.5) * 0.1;
             clockGroup.rotation.x = (Math.random() - 0.5) * 0.1;
         } else {
-            // Reset to normal when no longer critical
             clockGroup.scale.set(
                 metadata.originalSize,
                 metadata.originalSize,
@@ -521,12 +512,10 @@ document.addEventListener('mousedown', (e) => {
     raycaster.setFromCamera(mouse, camera);
     const intersects = raycaster.intersectObjects(clockObjects, true);
 
-    // Check if the intersection is the timer canvas
     if (intersects.length > 0 && intersects[0].object.userData.isTimerCanvas) {
-        return; // Don't allow drag if the intersected object is the timer canvas
+        return;
     }
 
-    // Proceed with the rest of the logic for moving clocks
     if (intersects.length > 0) {
         selectedClock = findParentGroup(intersects[0].object);
         dragPlane.setFromNormalAndCoplanarPoint(
@@ -654,7 +643,6 @@ function animate() {
     const delta = clock.getDelta();
     const elapsedTime = clock.getElapsedTime();
 
-    // Update all clocks' critical animations
     clockObjects.forEach(clock => {
         updateCriticalAnimation(clock, delta);
 
@@ -690,42 +678,30 @@ window.addEventListener('resize', () => {
 
 // Card functions
 function showCard() {
-    // Show the card overlay
     const cardOverlay = document.getElementById("card-overlay");
     cardOverlay.style.display = "block";
 
-    // Only proceed if we have a selected clock
     if (!selectedClock) return;
 
-    // Get the clock's metadata
     const clockId = selectedClock.userData?.id;
     const metadata = getClockMetadata(clockId);
 
-    // If no metadata found, return
     if (!metadata) return;
 
-    // Update the card elements
     const card = document.querySelector('.profile-card');
-
-    // Get the use ticket button
     const useTicketButton = document.getElementById('use-ticket-button');
 
-    // Si c'est l'horloge principale (ID 0), configurer le gestionnaire du bouton Use Ticket
     if (clockId === 0) {
-        useTicketButton.style.display = 'block'; // Afficher le bouton
+        useTicketButton.style.display = 'block';
 
-        // Supprimer les gestionnaires d'événements existants
         const newUseTicketButton = useTicketButton.cloneNode(true);
         useTicketButton.parentNode.replaceChild(newUseTicketButton, useTicketButton);
 
-        // Mettre à jour le texte du bouton pour afficher le prix
         async function updateButtonText() {
             try {
                 if (window.contract) {
-                    // Récupérer le prix du ticket depuis le smart contract
                     const ticketPrice = await window.contract.ticketPrice();
                     const formattedPrice = window.ethers ? window.ethers.utils.formatEther(ticketPrice) : ticketPrice.toString();
-                    // Mettre à jour le texte du bouton avec le prix
                     newUseTicketButton.textContent = `Utiliser un ticket (${formattedPrice} FTN)`;
                 } else {
                     console.warn('Contrat non disponible, utilisation du texte par défaut');
@@ -737,12 +713,9 @@ function showCard() {
             }
         }
         
-        // Appeler la fonction pour mettre à jour le texte
         updateButtonText();
 
-        // Ajouter un nouveau gestionnaire d'événements
         newUseTicketButton.addEventListener('click', function () {
-            // Participer à l'horloge 1
             if (typeof window.recordParticipation === 'function') {
                 window.recordParticipation(1);
             } else {
@@ -751,25 +724,20 @@ function showCard() {
             }
         });
     } else {
-        // Pour les autres horloges, on cache le bouton Use Ticket
         useTicketButton.style.display = 'none';
     }
 
-    // Update owner name
     const nameElement = card.querySelector('.name');
     nameElement.textContent = metadata.owner || "Unknown Owner";
 
-    // Update time in HH:MM:SS format
     const jobElement = card.querySelector('.job');
     jobElement.textContent = formatTime(metadata.time);
 
-    // Update profile image if available
     const imgElement = card.querySelector('.profile-img');
     if (metadata.imagePath) {
         imgElement.src = metadata.imagePath;
     }
 
-    // Créer ou récupérer l'élément pour afficher le nombre de tickets
     let ticketCountElement = document.getElementById('ticket-count');
     if (!ticketCountElement) {
         ticketCountElement = document.createElement('div');
@@ -781,19 +749,13 @@ function showCard() {
         card.appendChild(ticketCountElement);
     }
 
-    // Mettre à jour le nombre de tickets
     async function updateTicketCount() {
         try {
             if (window.contract) {
-                // Récupérer les infos de l'horloge 1 depuis le smart contract
                 const clockInfo = await window.contract.clocks(1);
-                
-                // Convertir la valeur en divisant par 10^18 (wei -> ether)
                 const ticketCount = window.ethers 
                     ? parseFloat(window.ethers.utils.formatEther(clockInfo.prize)).toFixed(1)
                     : (Number(clockInfo.prize.toString()) / 1e18).toFixed(1);
-                
-                // Afficher le nombre de tickets
                 ticketCountElement.textContent = `Cash prize: ${ticketCount} FTN`;
             } else {
                 console.warn('Contrat non disponible, impossible d\'afficher le nombre de tickets');
@@ -805,7 +767,6 @@ function showCard() {
         }
     }
     
-    // Appeler la fonction pour mettre à jour le nombre de tickets
     updateTicketCount();
 }
 
@@ -835,39 +796,29 @@ function cleanupInvalidClocks() {
     clockObjects = validClocks;
 }
 
-// Call this after loading or when you detect issues
 cleanupInvalidClocks();
 
-// Hide the scene on partner.html
 if (window.location.pathname.includes('partner.html')) {
     renderer.domElement.style.display = 'none';
 }
 
 function convertSize(input) {
-    const minInput = 1;     // Input range starts from 1
-    const maxInput = 10000; // Input range ends at 10000
-    const minOutput = 5;    // Output range starts at 5
-    const maxOutput = 18;   // Output range ends at 18
+    const minInput = 1;
+    const maxInput = 10000;
+    const minOutput = 5;
+    const maxOutput = 18;
 
-    // Calculate the proportional value between minOutput and maxOutput
     const result = minOutput + (maxOutput - minOutput) * ((input - minInput) / (maxInput - minInput));
-
-    // Clamp the result to make sure it's within the range [5, 18]
     return Math.max(minOutput, Math.min(maxOutput, result));
 }
 
 window.addEventListener('load', () => {
     if (window.location.pathname.includes('partner.html')) {
-        // Hide the Three.js scene
         renderer.domElement.style.display = 'none';
-
-        // Make createNewClock available globally
         window.createNewClock = createNewClock;
 
-        // Add click handler for create button
         document.getElementById('create-clock-button')?.addEventListener('click', () => {
             console.log('Creating new clock...');
-            // get cashprize
             const cashprize = document.getElementById('cashprize').value;
             const size = convertSize(cashprize);
 
@@ -876,7 +827,6 @@ window.addEventListener('load', () => {
         });
     }
 
-    // Clear existing clocks (except main clock)
     console.log('Number of clocks:', clockObjects.length);
     clockObjects.forEach(clock => {
         if (clock !== mainClock) {
@@ -892,14 +842,12 @@ window.addEventListener('load', () => {
     const savedClocks = JSON.parse(localStorage.getItem('clocks')) || [];
 
     if (savedClocks.length <= 3 && !window.location.pathname.includes('partner.html')) {
-        // Create default clocks only if no saved clocks exist
         const defaultClocks = [
             { size: 7, speed: 4, adjust: 0, depth: 0.1, image: '/assets/wwf.jpg', owner: 'wwf', time: 1800 },
             { size: 5.2, speed: 4, adjust: 0.1, depth: 0.08, image: '/assets/github_logo.png', owner: 'github', time: 9600 },
             { size: 6, speed: 4, adjust: 0.2, depth: 0.09, image: '/assets/symbiosis.png', owner: 'symbiosis', time: 30 }
         ];
 
-        // Use Promise.all to wait for all clocks to be created
         Promise.all(
             defaultClocks.map(clock =>
                 createNewClock(
@@ -919,9 +867,7 @@ window.addEventListener('load', () => {
             console.error("Error creating default clocks:", error);
         });
     } else {
-        // Load saved clocks with all correct properties
         savedClocks.forEach(clockData => {
-            // Skip if no ID (shouldn't happen, but just in case)
             if (clockData.id === undefined) {
                 console.warn("Found clock with undefined ID in localStorage:", clockData);
                 return;
@@ -933,13 +879,12 @@ window.addEventListener('load', () => {
                 model.scale.set(...clockData.scale);
 
                 const clockGroup = new THREE.Group();
-                clockGroup.userData.id = clockData.id; // Make sure to set the ID
-                console.log(`Loading clock with ID: ${clockData.id}`); // Debug log
+                clockGroup.userData.id = clockData.id;
+                console.log(`Loading clock with ID: ${clockData.id}`);
 
                 clockGroup.add(model);
                 clockGroup.position.set(...clockData.position);
 
-                // Create and store metadata
                 const metadata = new ClockMetadata(
                     clockData.id,
                     clockData.owner || "default",
@@ -954,12 +899,10 @@ window.addEventListener('load', () => {
                 clockMetadataMap.set(clockData.id, metadata);
                 clockIds.push(clockData.id);
 
-                // Update nextClockId to be higher than any existing ID
                 if (clockData.id >= nextClockId) {
                     nextClockId = clockData.id + 1;
                 }
 
-                // Add image with correct parameters from storage
                 addCircularImageTo(
                     clockGroup,
                     clockData.imagePath,
@@ -984,19 +927,16 @@ window.addEventListener('load', () => {
         });
     }
 
-    // Make utility functions available globally
     window.getAllClockIds = getAllClockIds;
     window.getClockMetadata = getClockMetadata;
     window.updateTime = updateTime;
     window.getClockById = getClockById;
 });
 
-// Add this near the top of script.js
 window.addEventListener('storage', function (event) {
     if (event.key === 'clocks') {
         const savedClocks = JSON.parse(localStorage.getItem('clocks')) || [];
 
-        // Clear existing clocks except main clock
         clockObjects.forEach(clock => {
             if (clock !== mainClock) {
                 scene.remove(clock);
@@ -1011,7 +951,6 @@ window.addEventListener('storage', function (event) {
             clockMetadataMap.set(0, metadata);
         }
 
-        // Load the updated clocks
         savedClocks.forEach(clockData => {
             loader.load('/assets/clock_low_poly/scene.gltf', (gltf) => {
                 const model = gltf.scene;
@@ -1019,13 +958,12 @@ window.addEventListener('storage', function (event) {
                 model.scale.set(...clockData.scale);
 
                 const clockGroup = new THREE.Group();
-                clockGroup.userData.id = clockData.id; // Make sure ID is set
-                console.log(`Loading clock with ID: ${clockData.id}`); // Debug log
+                clockGroup.userData.id = clockData.id;
+                console.log(`Loading clock with ID: ${clockData.id}`);
 
                 clockGroup.add(model);
                 clockGroup.position.set(...clockData.position);
 
-                // Create and store metadata
                 const metadata = new ClockMetadata(
                     clockData.id,
                     clockData.owner || "default",
@@ -1039,7 +977,6 @@ window.addEventListener('storage', function (event) {
                 clockMetadataMap.set(clockData.id, metadata);
                 clockIds.push(clockData.id);
 
-                // Update nextClockId
                 if (clockData.id >= nextClockId) {
                     nextClockId = clockData.id + 1;
                 }
@@ -1066,7 +1003,6 @@ window.addEventListener('storage', function (event) {
     }
 });
 
-// call create clock when the c keytouch is pressed
 document.addEventListener('keydown', (event) => {
     if (event.key === 'c') {
         createNewClock(7, 4, 0, 0.1, '/assets/wwf.jpg', "default", 30000);
@@ -1074,70 +1010,74 @@ document.addEventListener('keydown', (event) => {
 });
 
 document.getElementById('clearClocksButton').addEventListener('click', function () {
-    // Clear the clocks from localStorage
     localStorage.removeItem('clocks');
-    // Optionally, remove all the clocks from the scene
-    clockObjects.forEach(clock => scene.remove(clock)); // Assuming clockObjects holds all the clock instances
-    clockObjects = []; // Clear the array that holds clock references
+    clockObjects.forEach(clock => scene.remove(clock));
+    clockObjects = [];
     alert("Clocks have been cleared from localStorage.");
 });
 
 function formatTime(seconds) {
     if (seconds === undefined || seconds === null) return "00:00:00";
 
-    // Ensure seconds is a number
     seconds = Number(seconds);
 
-    // Calculate hours, minutes, and remaining seconds
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     const secs = Math.floor(seconds % 60);
 
-    // Format each component to 2 digits
     const pad = (num) => num.toString().padStart(2, '0');
 
     return `${pad(hours)}:${pad(minutes)}:${pad(secs)}`;
 }
 
-// Function to update the main clock time from WebSocket data
 window.updateClockTimeUI = function(seconds) {
     console.log("updateClockTimeUI called with seconds:", seconds);
-    
-    // Only proceed if we have a valid number
+
     if (seconds === undefined || seconds === null || isNaN(seconds)) {
         console.warn("Invalid time value received:", seconds);
         return;
     }
-    
-    seconds = Number(seconds); // Ensure it's a number
-    
-    // Find the main clock
+
+    seconds = Number(seconds);
+
     const mainClock = getClockById(0);
     if (!mainClock) {
         console.error("Main clock not found!");
         return;
     }
-    
-    // Get the metadata for the clock
+
     const metadata = clockMetadataMap.get(0);
     if (!metadata) {
         console.error("Main clock metadata not found!");
         return;
     }
-    
-    // Update the metadata time
+
     metadata.time = seconds;
     console.log("Updated main clock time to", seconds, "seconds");
-    
-    // Simple update approach - just update the text in the existing display
+
     if (mainClock.userData && mainClock.userData.timeDisplay) {
         const display = mainClock.userData.timeDisplay;
-        
+
         if (display.ctx && display.canvas) {
-            // Clear canvas
-            display.ctx.clearRect(0, 0, display.width, display.height);
-            
-            // Set text properties
+            display.ctx.clearRect(-50, -50, display.width + 100, display.height + 100);
+
+            if (display.isMainClock) {
+                const parentNode = display.canvas.parentNode;
+                if (parentNode) {
+                    const newCanvas = document.createElement('canvas');
+                    newCanvas.width = display.width;
+                    newCanvas.height = display.height;
+                    const newCtx = newCanvas.getContext('2d');
+
+                    if (parentNode.contains(display.canvas)) {
+                        parentNode.replaceChild(newCanvas, display.canvas);
+                    }
+
+                    display.canvas = newCanvas;
+                    display.ctx = newCtx;
+                }
+            }
+
             const fontSize = display.isMainClock ? 400 : 48;
             display.ctx.font = `bold ${fontSize}px 'Arial', sans-serif`;
             display.ctx.textAlign = 'center';
@@ -1145,21 +1085,25 @@ window.updateClockTimeUI = function(seconds) {
             display.ctx.fillStyle = 'rgba(255, 0, 0, 0.9)';
             display.ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
             display.ctx.lineWidth = 6;
-            
-            // Format and draw the time
+
             const formattedTime = formatTime(seconds);
             display.ctx.strokeText(formattedTime, display.width / 2, display.height / 2);
             display.ctx.fillText(formattedTime, display.width / 2, display.height / 2);
-            
-            // Update the texture
+
             display.texture.needsUpdate = true;
+
+            setTimeout(() => {
+                if (display && display.texture) {
+                    display.texture.needsUpdate = true;
+                }
+            }, 50);
+
             console.log("Clock display updated successfully");
         } else {
             console.error("Invalid display context or canvas");
         }
     } else {
         console.error("Main clock has no timeDisplay object");
-        // Create a new display as fallback
         createTimeDisplay(mainClock, seconds, 0.015);
     }
 };

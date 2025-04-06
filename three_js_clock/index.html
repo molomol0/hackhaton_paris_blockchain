@@ -172,13 +172,26 @@
                 useTicketBtn.disabled = true;
                 
                 try {
+                    // Check if the clock time is zero before trying to use a ticket
+                    const mainClock = window.getClockById && window.getClockById(0);
+                    const clockMetadata = mainClock && window.getClockMetadata && window.getClockMetadata(0);
+                    
+                    if (clockMetadata && clockMetadata.time <= 0) {
+                        console.error("Cannot bid: Clock has already ended");
+                        alert("La session est terminée! L'horloge est à zéro.");
+                        useTicketBtn.textContent = originalText;
+                        useTicketBtn.disabled = false;
+                        return;
+                    }
+                    
                     if (typeof window.recordParticipation === 'function') {
                         // This function now checks ticket balance before proceeding
+                        // and also checks if the clock has time remaining
                         const result = await window.recordParticipation(1);
                         
                         if (result) {
                             console.log("Bid successfully initiated");
-                            // The UI update will happen through WebSocket messages
+                            // Reset button will happen when WebSocket confirms success
                         } else {
                             console.error("Failed to initiate bid");
                             useTicketBtn.textContent = originalText;
