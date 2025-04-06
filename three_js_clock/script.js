@@ -697,8 +697,8 @@ function showCard() {
     const useTicketButton = document.getElementById('use-ticket-button');
 
     // Si c'est l'horloge principale (ID 0), configurer le gestionnaire du bouton Use Ticket
-    // if (clockId === 0) {
-    //     useTicketButton.style.display = 'block'; // Afficher le bouton
+    if (clockId === 0) {
+        useTicketButton.style.display = 'block'; // Afficher le bouton
 
         // Supprimer les gestionnaires d'événements existants
         const newUseTicketButton = useTicketButton.cloneNode(true);
@@ -726,20 +726,20 @@ function showCard() {
         // Appeler la fonction pour mettre à jour le texte
         updateButtonText();
 
-    //     // Ajouter un nouveau gestionnaire d'événements
-    //     newUseTicketButton.addEventListener('click', function () {
-    //         // Participer à l'horloge 1
-    //         if (typeof window.recordParticipation === 'function') {
-    //             window.recordParticipation(1);
-    //         } else {
-    //             console.error("La fonction recordParticipation n'est pas disponible");
-    //             alert("Erreur: Connexion au portefeuille non établie");
-    //         }
-    //     });
-    // } else {
-    //     // Pour les autres horloges, on cache le bouton Use Ticket
-    //     useTicketButton.style.display = 'none';
-    // }
+        // Ajouter un nouveau gestionnaire d'événements
+        newUseTicketButton.addEventListener('click', function () {
+            // Participer à l'horloge 1
+            if (typeof window.recordParticipation === 'function') {
+                window.recordParticipation(1);
+            } else {
+                console.error("La fonction recordParticipation n'est pas disponible");
+                alert("Erreur: Connexion au portefeuille non établie");
+            }
+        });
+    } else {
+        // Pour les autres horloges, on cache le bouton Use Ticket
+        useTicketButton.style.display = 'none';
+    }
 
     // Update owner name
     const nameElement = card.querySelector('.name');
@@ -755,7 +755,7 @@ function showCard() {
         imgElement.src = metadata.imagePath;
     }
 
-    // Cru00e9er ou ru00e9cupu00e9rer l'u00e9lu00e9ment pour afficher le nombre de tickets
+    // Créer ou récupérer l'élément pour afficher le nombre de tickets
     let ticketCountElement = document.getElementById('ticket-count');
     if (!ticketCountElement) {
         ticketCountElement = document.createElement('div');
@@ -767,11 +767,11 @@ function showCard() {
         card.appendChild(ticketCountElement);
     }
 
-    // Mettre u00e0 jour le nombre de tickets
+    // Mettre à jour le nombre de tickets
     async function updateTicketCount() {
         try {
             if (window.contract) {
-                // Ru00e9cupu00e9rer les infos de l'horloge 1 depuis le smart contract
+                // Récupérer les infos de l'horloge 1 depuis le smart contract
                 const clockInfo = await window.contract.clocks(1);
                 
                 // Convertir la valeur en divisant par 10^18 (wei -> ether)
@@ -791,7 +791,7 @@ function showCard() {
         }
     }
     
-    // Appeler la fonction pour mettre u00e0 jour le nombre de tickets
+    // Appeler la fonction pour mettre à jour le nombre de tickets
     updateTicketCount();
 }
 
