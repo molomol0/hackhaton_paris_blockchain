@@ -151,3 +151,16 @@ body{
   canvas {
     display: none;
 }
+
+.clock-creation{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 20px;
+    gap: 20px;
+}
+
+#create-clock-button {
+    border: none;
+    position: relative;
+}

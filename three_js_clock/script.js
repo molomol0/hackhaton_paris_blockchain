@@ -68,6 +68,8 @@ class ClockMetadata {
         this.depth = depth;
         this.imagePath = imagePath;
         this.position = [0, 0, 0];
+        this.originalSize = size; // Store original size
+        this.isCritical = false; // Track critical state
     }
 }
 
@@ -100,9 +102,8 @@ loader.load('/assets/clock_low_poly/scene.gltf', (gltf) => {
     mainClock.scale.set(18, 18, 18);
     scene.add(mainClock);
     clockObjects.push(mainClock);
-    // After creating mainClock:
     createTimeDisplay(mainClock, 200000, 0.015);
-    updateTimeDisplay(mainClock, 200000, true); // Make it transparent
+    updateTimeDisplay(mainClock, 200000);
 
     // Create and store metadata for main clock
     const metadata = new ClockMetadata(0, "system", 200000, 18, 1, 0, 0.015, '/assets/bahamut.png');
@@ -196,7 +197,9 @@ function createNewClock(size, speed, adjust, depth, imagePath, owner = "default"
             };
 
             let positionFound = false;
-            let bestPosition = null;
+            let bestPosition = null;// After creating mainClock:
+            createTimeDisplay(mainClock, 200000, 0.015);
+            updateTimeDisplay(mainClock, 200000, true); // Make it transparent
             let minOverlap = Infinity;
             const maxAttempts = 100;
 
@@ -296,6 +299,7 @@ function createNewClock(size, speed, adjust, depth, imagePath, owner = "default"
         });
     });
 }// Get all clock IDs
+
 function getAllClockIds() {
     return clockIds;
 }
@@ -325,72 +329,166 @@ function updateTime(id, newTime) {
 function getClockById(id) {
     return clockObjects.find(clock => clock.userData.id === id);
 }
-
+// Modified createTimeDisplay function with null checks
 function createTimeDisplay(clockGroup, initialTime = 0, depth = 0) {
-    // Create a canvas element with transparent background
-    const canvas = document.createElement('canvas');
-    canvas.width = 200;
-    canvas.height = 60;
+    // First, check if clockGroup exists
+    if (!clockGroup) {
+        console.error("Cannot create time display - clockGroup is null");
+        return null;
+    }
+
+    // Initialize userData if it doesn't exist
+    if (!clockGroup.userData) {
+        clockGroup.userData = {};
+    }
+
+    const isMainClock = clockGroup.userData.id === 0;
     
-    // Create a plane with transparent texture
+    // Create canvas with appropriate size
+    const canvas = document.createElement('canvas');
+    const width = isMainClock ? 10000 : 400;
+    const height = isMainClock ? 3000 : 100;
+    canvas.width = width;
+    canvas.height = height;
+    
+    // Create texture
     const texture = new THREE.CanvasTexture(canvas);
-    const geometry = new THREE.PlaneGeometry(1, 0.3);
+    if (renderer.capabilities) {
+        texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    }
+    
+    // Create plane
+    const planeWidth = isMainClock ? 1.5 : 2.0;
+    const planeHeight = isMainClock ? 0.4 : 0.5;
+    const geometry = new THREE.PlaneGeometry(planeWidth, planeHeight);
+    
     const material = new THREE.MeshBasicMaterial({
         map: texture,
         transparent: true,
-        opacity: 1,
-        depthTest: false,
-        color: 0x000000 // Base color (won't show since we're using texture)
+        opacity: 0.95,
+        depthTest: false
     });
     
     const plane = new THREE.Mesh(geometry, material);
-    plane.position.set(0, 0.5, depth + 0.01); // Slightly in front of clock face
+    plane.position.set(0, isMainClock ? 0 : -0.1, isMainClock ? depth + 0.025 : depth + 0.2);
     
-    // Add to clock group
-    clockGroup.add(plane);
-    
-    // Store references
+    // Store references safely
     clockGroup.userData.timeDisplay = {
         canvas: canvas,
         plane: plane,
         texture: texture,
-        ctx: canvas.getContext('2d')
-
+        ctx: canvas.getContext('2d'),
+        isMainClock: isMainClock,
+        width: width,
+        height: height
     };
     
     // Initial render
     updateTimeDisplay(clockGroup, initialTime);
     
+    // Safely add to clock group
+    if (clockGroup instanceof THREE.Object3D) {
+        clockGroup.add(plane);
+    } else {
+        console.error("clockGroup is not a valid THREE.Object3D", clockGroup);
+    }
+    
     return plane;
 }
 
+// Modified updateTimeDisplay with null checks
 function updateTimeDisplay(clockGroup, time) {
-    if (!clockGroup.userData.timeDisplay) return;
+    if (!clockGroup || !clockGroup.userData || !clockGroup.userData.timeDisplay) {
+        console.error("Cannot update time display - invalid clockGroup or missing timeDisplay");
+        return;
+    }
     
-    const { canvas, ctx, texture } = clockGroup.userData.timeDisplay;
+    const { canvas, ctx, texture, isMainClock, width, height } = clockGroup.userData.timeDisplay;
     const formattedTime = formatTime(time);
     
-    // Clear with transparent background
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // Clear canvas
+    ctx.clearRect(0, 0, width, height);
     
-    // Text styling
-    // In updateTimeDisplay:
-    const isMainClock = clockGroup.userData?.id === 0;
-    const fontSize = isMainClock ? 36 : 24;
-    ctx.font = `bold ${fontSize}px Arial`;
+    // Set text properties - change color if critical
+    const fontSize = isMainClock ? 400 : 48;
+    ctx.font = `bold ${fontSize}px 'Arial', sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     
-    // Shadow effect (dark outline)
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.7)';
-    ctx.lineWidth = 4;
-    ctx.strokeText(formattedTime, canvas.width/2, canvas.height/2);
+    // Change color to flashing red if time is critical
+    const metadata = clockMetadataMap.get(clockGroup.userData.id);
+    const isCritical = metadata && metadata.time <= 30;
     
-    // Main text (white)
-    ctx.fillStyle = 'white';
-    ctx.fillText(formattedTime, canvas.width/2, canvas.height/2);
+    if (isCritical) {
+        console.log("Critical time detected for clock ID:", clockGroup.userData.id);
+        // Flashing effect
+        const flashSpeed = 10;
+        const flashIntensity = 0.5 + 0.5 * Math.sin(clock.getElapsedTime() * flashSpeed);
+        ctx.fillStyle = `rgba(255, ${Math.floor(100 * flashIntensity)}, ${Math.floor(100 * flashIntensity)}, 0.9)`;
+    } else {
+        ctx.fillStyle = 'rgba(255, 0, 0, 0.9)';
+    }
+    
+    // Draw text
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
+    ctx.lineWidth = 6;
+    ctx.strokeText(formattedTime, width/2, height/2);
+    ctx.fillText(formattedTime, width/2, height/2);
     
     texture.needsUpdate = true;
+}
+
+function updateCriticalAnimation(clockGroup, delta) {
+    if (!clockGroup.userData?.id) return;
+    
+    const metadata = clockMetadataMap.get(clockGroup.userData.id);
+    if (!metadata) return;
+    
+    // Check if time is critical (below 30 seconds)
+    const isNowCritical = metadata.time <= 30;
+    
+    // Only proceed if state changed or we're in critical mode
+    if (isNowCritical || metadata.isCritical) {
+        metadata.isCritical = isNowCritical;
+        
+        if (isNowCritical) {
+            // Calculate pulse effect (0.8-1.2 of original size)
+            const clockScale = 0.3;
+            // make the timer font pulse
+            const fontSize = 48 + 20 * Math.sin(clock.getElapsedTime() * 5);
+            const ctx = clockGroup.userData.timeDisplay.ctx;
+            ctx.font = `bold ${fontSize}px 'Arial', sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.clearRect(0, 0, clockGroup.userData.timeDisplay.width, clockGroup.userData.timeDisplay.height);
+            ctx.fillStyle = 'rgba(255, 0, 0, 0.9)';
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
+            ctx.lineWidth = 6;
+            ctx.strokeText(metadata.time, clockGroup.userData.timeDisplay.width/2, clockGroup.userData.timeDisplay.height/2);      
+            ctx.fillText(formatTime(metadata.time), clockGroup.userData.timeDisplay.width/2, clockGroup.userData.timeDisplay.height/2);
+            clockGroup.userData.timeDisplay.texture.needsUpdate = true;
+
+            
+            // Apply pulsing effect
+            clockGroup.scale.set(
+                metadata.originalSize * clockScale,
+                metadata.originalSize * clockScale,
+                metadata.originalSize * clockScale
+            );
+            
+            // Add slight random rotation for shiver effect
+            clockGroup.rotation.z = (Math.random() - 0.5) * 0.1;
+            clockGroup.rotation.x = (Math.random() - 0.5) * 0.1;
+        } else {
+            // Reset to normal when no longer critical
+            clockGroup.scale.set(
+                metadata.originalSize,
+                metadata.originalSize,
+                metadata.originalSize
+            );
+            clockGroup.rotation.set(0, 0, 0);
+        }
+    }
 }
 
 // Mouse events
@@ -408,6 +506,12 @@ document.addEventListener('mousedown', (e) => {
     raycaster.setFromCamera(mouse, camera);
     const intersects = raycaster.intersectObjects(clockObjects, true);
 
+    // Check if the intersection is the timer canvas
+    if (intersects.length > 0 && intersects[0].object.userData.isTimerCanvas) {
+        return; // Don't allow drag if the intersected object is the timer canvas
+    }
+
+    // Proceed with the rest of the logic for moving clocks
     if (intersects.length > 0) {
         selectedClock = findParentGroup(intersects[0].object);
         dragPlane.setFromNormalAndCoplanarPoint(
@@ -423,6 +527,7 @@ document.addEventListener('mousedown', (e) => {
 
     restoringCamera = false;
 });
+
 
 document.addEventListener('mouseup', (e) => {
     clearTimeout(clickTimeout);
@@ -527,19 +632,18 @@ document.addEventListener('mousemove', (e) => {
     }
 });
 
-// Animation loop
 const clock = new THREE.Clock();
+// Animation loop
 function animate() {
     requestAnimationFrame(animate);
     const delta = clock.getDelta();
+    const elapsedTime = clock.getElapsedTime();
 
-    // Update all time displays
-   clockObjects.forEach(clock => {
-        if (clock.userData.timeDisplay) {
-            clock.userData.timeDisplay.plane.lookAt(camera.position);
-        }
+    // Update all clocks' critical animations
+    clockObjects.forEach(clock => {
+        updateCriticalAnimation(clock, delta);
+        
     });
-
 
     if (big_mixer) big_mixer.update(delta * 0.05);
     mixers.forEach((m) => m.update(delta * 0.2));
@@ -581,21 +685,21 @@ function showCard() {
     // Get the clock's metadata
     const clockId = selectedClock.userData?.id;
     const metadata = getClockMetadata(clockId);
-    
+
     // If no metadata found, return
     if (!metadata) return;
 
     // Update the card elements
     const card = document.querySelector('.profile-card');
-    
+
     // Update owner name
     const nameElement = card.querySelector('.name');
     nameElement.textContent = metadata.owner || "Unknown Owner";
-    
+
     // Update time in HH:MM:SS format
     const jobElement = card.querySelector('.job');
     jobElement.textContent = formatTime(metadata.time);
-    
+
     // Update profile image if available
     const imgElement = card.querySelector('.profile-img');
     if (metadata.imagePath) {
@@ -606,18 +710,18 @@ function showCard() {
 // Helper function to format time as HH:MM:SS
 function formatTime(seconds) {
     if (seconds === undefined || seconds === null) return "00:00:00";
-    
+
     // Ensure seconds is a number
     seconds = Number(seconds);
-    
+
     // Calculate hours, minutes, and remaining seconds
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     const secs = Math.floor(seconds % 60);
-    
+
     // Format each component to 2 digits
     const pad = (num) => num.toString().padStart(2, '0');
-    
+
     return `${pad(hours)}:${pad(minutes)}:${pad(secs)}`;
 }
 
@@ -655,6 +759,18 @@ if (window.location.pathname.includes('partner.html')) {
     renderer.domElement.style.display = 'none';
 }
 
+function convertSize(input) {
+    const minInput = 1;     // Input range starts from 1
+    const maxInput = 10000; // Input range ends at 10000
+    const minOutput = 5;    // Output range starts at 5
+    const maxOutput = 18;   // Output range ends at 18
+
+    // Calculate the proportional value between minOutput and maxOutput
+    const result = minOutput + (maxOutput - minOutput) * ((input - minInput) / (maxInput - minInput));
+
+    // Clamp the result to make sure it's within the range [5, 18]
+    return Math.max(minOutput, Math.min(maxOutput, result));
+}
 
 window.addEventListener('load', () => {
     if (window.location.pathname.includes('partner.html')) {
@@ -667,9 +783,12 @@ window.addEventListener('load', () => {
         // Add click handler for create button
         document.getElementById('create-clock-button')?.addEventListener('click', () => {
             console.log('Creating new clock...');
+            // get cashprize
+            const cashprize = document.getElementById('cashprize').value;
+            const size = convertSize(cashprize);
+
             const owner = prompt("Enter owner name:", "default");
-            const initialTime = Date.now();
-            createNewClock(7, 4, 0, 0.1, '/assets/wwf.jpg', owner, initialTime);
+            createNewClock(size, 4, 0, 0.1, '/assets/wwf.jpg', owner, 300000);
         });
     }
 
@@ -688,7 +807,7 @@ window.addEventListener('load', () => {
 
     const savedClocks = JSON.parse(localStorage.getItem('clocks')) || [];
 
-    if (savedClocks.length <= 4 && !window.location.pathname.includes('partner.html')) {
+    if (savedClocks.length <= 3 && !window.location.pathname.includes('partner.html')) {
         // Create default clocks only if no saved clocks exist
         const defaultClocks = [
             { size: 7, speed: 4, adjust: 0, depth: 0.1, image: '/assets/wwf.jpg', owner: 'wwf', time: 1800 },
@@ -698,7 +817,7 @@ window.addEventListener('load', () => {
 
         // Use Promise.all to wait for all clocks to be created
         Promise.all(
-            defaultClocks.map(clock => 
+            defaultClocks.map(clock =>
                 createNewClock(
                     clock.size,
                     clock.speed,
@@ -858,6 +977,13 @@ window.addEventListener('storage', function (event) {
                 resolveCollisions(clockGroup);
             });
         });
+    }
+});
+
+// call create clock when the c keytouch is pressed
+document.addEventListener('keydown', (event) => {
+    if (event.key === 'c') {
+        createNewClock(7, 4, 0, 0.1, '/assets/wwf.jpg', "default", 30000);
     }
 });
 

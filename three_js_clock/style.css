@@ -101,7 +101,11 @@ body {
 }
 
 canvas {
-    z-index: 0;  /* Ensure Three.js canvas is beneath the card */
+    image-rendering: optimizeSpeed;             /* Older versions of FF */
+    image-rendering: -moz-crisp-edges;          /* FF 6.0+ */
+    image-rendering: -webkit-optimize-contrast; /* Webkit */
+    image-rendering: crisp-edges;               /* Future browsers */
+    -ms-interpolation-mode: nearest-neighbor;   /* IE */
 }
 
 .profile-card {
