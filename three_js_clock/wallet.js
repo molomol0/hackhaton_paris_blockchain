@@ -1,4 +1,6 @@
 // On attend que la page soit chargée
+import { newChatMessage } from './chat.js';
+
 let contract;
 export let wsSocket = null;
 
@@ -132,12 +134,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
             wsSocket.onmessage = function(event) {
                 const data = JSON.parse(event.data);
-                console.log("Message reçu du serveur WebSocket:", data);
+                console.log("MESSSSSSSAGE: ", data);
                 if (data.type === 'update')
                     console.log("Mise à jour reçue:", data.update);
                 if (data.type === 'end_clock')
                     alert("L'horloge est terminée");
-                    // Mettez à jour l'interface utilisateur ou effectuez d'autres actions
+                if (data.type === 'chat')
+                    newChatMessage(data.message);
                 }
             
 
@@ -319,6 +322,8 @@ async function finalizeClock(clockId) {
         return false;
     }
 }
+
+
 
 // Exposer la fonction globalement
 window.finalizeClock = finalizeClock;

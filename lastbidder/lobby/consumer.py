@@ -24,9 +24,30 @@ class LobbyConsumer(AsyncWebsocketConsumer):
 		await self.close()
 
 	async def receive(self, text_data):
-		text_data_json = json.loads(text_data)
-		message = text_data_json.get('message', '')
-		await self.process_event(text_data)
+		try:
+			text_data_json = json.loads(text_data)
+			event = text_data_json['event']
+			data = text_data_json['data']
+
+            # Dictionary mapping events to handler functions
+			event_handlers = {
+                'paddle_moved': self.send_lobby_message,
+                'connect': self.first_msg,
+                'bid': self.bid,
+                'chat': self.send_lobby_message,
+            }
+
+            # Get the handler function from the dictionary, default to handle_unknown_event
+			handler = event_handlers.get(event, self.handle_unknown_event)
+
+            # Call the handler function with the data
+			await handler(data)
+		except json.JSONDecodeError:
+			await self.send(text_data=json.dumps({"error": "Invalid JSON"}))
+		except KeyError:
+			await self.send(text_data=json.dumps({"error": "Missing event or data"}))
+		except Exception as e:
+			await self.send(text_data=json.dumps({"error": str(e)}))
 
 	async def send_lobby_message(self, message):
 		# Send a message to the lobby group
@@ -41,7 +62,7 @@ class LobbyConsumer(AsyncWebsocketConsumer):
 	async def chat_message(self, event):
         # Send the message to the WebSocket
 		message = event["message"]
-		await self.send(text_data=json.dumps({"message": message}))
+		await self.send(text_data=json.dumps({"type": "chat", "message": message}))
 
 	async def handle_unknown_event(self, event, data):
 		await self.send(text_data=json.dumps({"error": "Unknown event"}))
@@ -76,32 +97,6 @@ class LobbyConsumer(AsyncWebsocketConsumer):
 	async def bid(self, data):
 		await my_clock.add_time(self.userId)
 		print('did a bid')
-
-	async def process_event(self, text_data):
-		try:
-			text_data_json = json.loads(text_data)
-			event = text_data_json['event']
-			data = text_data_json['data']
-
-            # Dictionary mapping events to handler functions
-			event_handlers = {
-                'paddle_moved': self.send_lobby_message,
-                'connect': self.first_msg,
-                'bid': self.bid
-            }
-
-            # Get the handler function from the dictionary, default to handle_unknown_event
-			handler = event_handlers.get(event, self.handle_unknown_event)
-
-            # Call the handler function with the data
-			await handler(data)
-		except json.JSONDecodeError:
-			await self.send(text_data=json.dumps({"error": "Invalid JSON"}))
-		except KeyError:
-			await self.send(text_data=json.dumps({"error": "Missing event or data"}))
-		except Exception as e:
-			await self.send(text_data=json.dumps({"error": str(e)}))
-
 	
 	async def update_event(self, event):
         # Send the update event to the WebSocket

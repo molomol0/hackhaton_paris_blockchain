@@ -9,6 +9,7 @@
     <link href="https://unpkg.com/boxicons@2.1.2/css/boxicons.min.css" rel="stylesheet" />
 </head>
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
 <body>
     <div id="ui">
         <a href="ticket.html" class="btn top-right">Tickets</a>
@@ -44,21 +45,11 @@
                 <span class="green-dot"></span>
             </div>
         </div>
-    
-        <div id="chat-box">
-            <div class="message">
-                <span class="username">JohnDoe:</span> That's the best site ever!
-            </div>
-            <div class="message">
-                <span class="username">JaneSmith:</span> Long live Bahamut!
-            </div>
-            <div class="message">
-                <span class="username">MikeJohnson:</span> I just won a clock!
-            </div>
-        </div>
+
+        <div id="chat-box"></div>
         <input type="text" id="chat-input" placeholder="Type a message..." />
     </div>
-    
+
     <!-- Card Overlay -->
     <div id="card-overlay" onclick="hideCard()">
         <div class="profile-card" onclick="event.stopPropagation()">
@@ -113,73 +104,94 @@
             document.removeEventListener('mousemove', dragMove);
             document.removeEventListener('mouseup', dragEnd);
         }
-    </script>
-    <script>
-        const chatNumber = document.querySelector('.chat-number');
-        let current = 200;
-    
-        function updateToRandomTarget() {
-            // Generate a target within ±200, clamped between 0 and 9999
-            let offset = Math.floor(Math.random() * 201); // [-200, +200]
-            let target = Math.max(0, Math.min(9999, current + offset));
-    
-            const duration = 2000; // 5 seconds
-            const frameRate = 30;
-            const totalFrames = duration / (1000 / frameRate);
-            const step = (target - current) / totalFrames;
-    
-            let frame = 0;
-    
-            const interval = setInterval(() => {
-                frame++;
-                current += step;
-                chatNumber.textContent = Math.round(current);
-    
-                if (frame >= totalFrames) {
-                    current = target;
-                    chatNumber.textContent = target;
-                    clearInterval(interval);
-    
-                    // Wait 3 seconds before starting the next update
-                    setTimeout(updateToRandomTarget, 3000);
-                }
-            }, 1000 / frameRate);
-        }
-    
-        window.onload = () => {
-            chatNumber.textContent = current;
-            setTimeout(updateToRandomTarget, 3000); // Initial delay
-        };
-    </script>
-    <script>
-        window.showCard = function () {
-            document.getElementById("card-overlay").style.display = "block";
-        };
-        window.hideCard = function () {
-            document.getElementById("card-overlay").style.display = "none";
-        };
-    
         document.addEventListener('DOMContentLoaded', () => {
             const useTicketBtn = document.getElementById("use-ticket-button");
-    
+
             useTicketBtn.addEventListener("click", () => {
                 confetti({
                     particleCount: 150,
                     spread: 80,
                     origin: { x: 0.5 },
                     origin: { y: 0.6 },
-                    origin: { z: 99999}
+                    origin: { z: 99999 }
                 });
                 const wsSocket = getWebSocket(); // Dynamically get the WebSocket instance
-      console.log('bid wsSocket', wsSocket);
-      if (wsSocket === null) {
-        alert('Please connect your wallet first.');
-        return;
-      }
-      wsSocket.send(JSON.stringify({event: 'bid', data: ""}));
+
+
+                if (wsSocket === null) {
+                    alert('Please connect your wallet first.');
+                    return;
+                }
+                wsSocket.send(JSON.stringify({ event: 'bid', data: "" }));
+            });
+
+            const chatInput = document.getElementById('chat-input');
+            const chatBox = document.getElementById('chat-box');
+
+            chatInput.addEventListener('keypress', (event) => {
+                if (event.key === 'Enter' && chatInput.value.trim() !== '') {
+                    const message = chatInput.value.trim();
+                    
+                    const wsSocket = getWebSocket(); // Dynamically get the WebSocket instance
+
+                    // Check if WebSocket is connected
+                    if (wsSocket) {
+                        wsSocket.send(JSON.stringify({ event: 'chat', data: message }));
+                        // Clear the input field
+                        chatInput.value = '';
+                    } else {
+                        alert('WebSocket is not connected. Please connect your wallet first.');
+                    }
+                }
             });
         });
-    </script>    
+
+    </script>
+    <script>
+        const chatNumber = document.querySelector('.chat-number');
+        let current = 200;
+
+        function updateToRandomTarget() {
+            // Generate a target within ±200, clamped between 0 and 9999
+            let offset = Math.floor(Math.random() * 201); // [-200, +200]
+            let target = Math.max(0, Math.min(9999, current + offset));
+
+            const duration = 2000; // 5 seconds
+            const frameRate = 30;
+            const totalFrames = duration / (1000 / frameRate);
+            const step = (target - current) / totalFrames;
+
+            let frame = 0;
+
+            const interval = setInterval(() => {
+                frame++;
+                current += step;
+                chatNumber.textContent = Math.round(current);
+
+                if (frame >= totalFrames) {
+                    current = target;
+                    chatNumber.textContent = target;
+                    clearInterval(interval);
+
+                    // Wait 3 seconds before starting the next update
+                    setTimeout(updateToRandomTarget, 3000);
+                }
+            }, 1000 / frameRate);
+        }
+
+        window.onload = () => {
+            chatNumber.textContent = current;
+            setTimeout(updateToRandomTarget, 3000); // Initial delay
+        };
+    </script>
+    <script type="module">
+        window.showCard = function () {
+            document.getElementById("card-overlay").style.display = "block";
+        };
+        window.hideCard = function () {
+            document.getElementById("card-overlay").style.display = "none";
+        };
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
     <script type="module" src="wallet.js"></script>
 </body>
