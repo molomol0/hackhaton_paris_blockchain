@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Adresse de votre contrat déployé
     const CONTRACT_ADDRESS = "0xa7F167DC8AE458d9CC7e9cD8dc96F55E4c644DaE";
-    
+
     // ABI simplifiée du contrat
     const CONTRACT_ABI = [
         "function clocks(uint256) view returns (uint256 id, string name, uint256 prize, uint256 deadline, address lastBidder, uint256 extensionTime, bool isActive)",
@@ -40,13 +40,28 @@ document.addEventListener('DOMContentLoaded', () => {
     async function updateTicketCount() {
         if (contract && userAccount) {
             try {
+                console.log("Contrat :", contract);
+                console.log("Adresse utilisateur :", userAccount);
+                
+                // Essayer d'appeler nextClockId en premier pour voir si le contrat répond
+                try {
+                    const nextId = await contract.nextClockId();
+                    console.log("ID horloge suivante :", nextId.toString());
+                } catch (clockError) {
+                    console.error("Erreur avec nextClockId :", clockError);
+                }
+                
+                // Puis essayer userTickets
                 const ticketCount = await contract.userTickets(userAccount);
+                console.log("Tickets lus :", ticketCount.toString());
                 userTickets.textContent = ticketCount.toString();
             } catch (error) {
-                console.error("Erreur lors de la lecture des tickets:", error);
+                console.error("Erreur détaillée :", error);
+                userTickets.textContent = "0"; // Valeur par défaut
             }
         }
     }
+    
 
     // Fonction pour connecter au wallet
     async function connectWallet() {
@@ -82,7 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     console.log("Contrat initialisé avec succès");
                     
                     // Mettre à jour le nombre de tickets
-                    await updateTicketCount();
+                    await updateTicketCount(); //getTicketBalance
                     
                 } catch (error) {
                     console.error("Erreur d'initialisation du contrat:", error);
@@ -111,7 +126,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         try {
             // Calculer le prix
-            const price = await contract.getTicketPrice(amount);
+            const price = await contract.calculatePrice(amount);    
             console.log("Prix calculé:", ethers.utils.formatEther(price), "ETH");
             
             // Confirmer l'achat
@@ -133,6 +148,13 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             console.error("Erreur lors de l'achat:", error);
             showNotification("Erreur: " + error.message, true);
+        }// Vérifier le réseau
+        try {
+            const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+            console.log("Réseau actuel:", parseInt(chainId, 16), "en hexadécimal:", chainId);
+            alert(`Réseau actuel ID: ${parseInt(chainId, 16)} (${chainId})`);
+        } catch (error) {
+            console.error("Erreur lors de la vérification du réseau:", error);
         }
     }
     
