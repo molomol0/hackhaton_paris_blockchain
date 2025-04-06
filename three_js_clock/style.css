@@ -135,7 +135,7 @@ canvas {
     height: 36%;
     width: 100%;
     border-radius: 24px 24px 0 0;
-    background-color: #4070f4;
+    background-color: #70e6ab;
 }
 
 .image {
@@ -143,7 +143,7 @@ canvas {
     height: 150px;
     width: 150px;
     border-radius: 50%;
-    background-color: #4070f4;
+    background-color: #6bdba3;
     padding: 3px;
     margin-bottom: 10px;
 }
@@ -189,7 +189,7 @@ canvas {
     width: 34px;
     border-radius: 50%;
     margin: 0 8px;
-    background-color: #4070f4;
+    background-color: linear-gradient(135deg, #72c099, #4070f4);
     text-decoration: none;
 }
 
@@ -208,13 +208,13 @@ canvas {
     border-radius: 24px;
     margin: 0 10px;
     padding: 8px 24px;
-    background-color: #4070f4;
+    background: linear-gradient(375deg, #1cc7d0, #2ede98);
     cursor: pointer;
     transition: all 0.3s ease;
 }
 
 .button:hover {
-    background-color: #0e4bf1;
+    background: linear-gradient(375deg, #169ca3, #229e6c);
 }
 
 .analytics {

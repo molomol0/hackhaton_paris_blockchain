@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="style.css" />
     <link href="https://unpkg.com/boxicons@2.1.2/css/boxicons.min.css" rel="stylesheet" />
 </head>
-
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 <body>
     <div id="ui">
         <a href="ticket.html" class="btn top-right">Tickets</a>
@@ -150,8 +150,28 @@
             setTimeout(updateToRandomTarget, 3000); // Initial delay
         };
     </script>
+    <script>
+        window.showCard = function () {
+            document.getElementById("card-overlay").style.display = "block";
+        };
+        window.hideCard = function () {
+            document.getElementById("card-overlay").style.display = "none";
+        };
     
+        document.addEventListener('DOMContentLoaded', () => {
+            const useTicketBtn = document.getElementById("use-ticket-button");
     
+            useTicketBtn.addEventListener("click", () => {
+                confetti({
+                    particleCount: 150,
+                    spread: 80,
+                    origin: { x: 0.5 },
+                    origin: { y: 0.6 },
+                    origin: { z: 99999}
+                });
+            });
+        });
+    </script>    
     <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
     <script src="wallet.js"></script>
 </body>
