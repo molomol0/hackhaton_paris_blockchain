@@ -85,10 +85,66 @@ document.addEventListener('DOMContentLoaded', () => {
             const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
             const account = accounts[0];
             
+            if (!account) {
+                console.error("Aucun compte trouvé");
+                return;
+            }
+
             // Changer le texte du bouton
             connectBtn.textContent = 'Wallet Connecté';
             connectBtn.style.backgroundColor = '#21ba45';
             
+            const response = await fetch('http://localhost:8000/auth/connect/', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  walletAddress: account,
+                  signature: signature, // Send the signed message
+                  message: message, // Send the message that was signed
+                }),
+            }).then((response) => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                else
+                    console.log("Connection compte client réussie");
+                    return response.json();
+            });
+            const data = await response;
+            sessionStorage.setItem('walletAddress', account);
+            sessionStorage.setItem('accessToken', data.access);
+            sessionStorage.setItem('refreshToken', data.refresh);
+            sessionStorage.setItem('userId', data.userId);
+
+            wsSocket = new WebSocket('ws://localhost:8000/lobby');
+            
+            wsSocket.onopen = function(event) {
+                wsSocket.send(JSON.stringify({
+                    event: 'connect',
+                    data: {
+                        "walletAddress": account,
+                        "userId": data.userId 
+                    }
+                }));
+                console.log("Connecté au serveur WebSocket");
+            };
+
+            wsSocket.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                console.log("Message reçu du serveur WebSocket:", data);
+                if (data.type === 'update')
+                    console.log("Mise à jour reçue:", data.update);
+                if (data.type === 'end_clock')
+                    alert("L'horloge est terminée");
+                    // Mettez à jour l'interface utilisateur ou effectuez d'autres actions
+                }
+            
+
+            wsSocket.onclose = function(event) {
+                wsSocket = null;
+            };
             // Connexion au contrat (si ethers.js est disponible)
             if (window.ethers) {
                 try {
@@ -197,6 +253,12 @@ async function recordParticipation(clockId) {
         alert("Erreur lors de l'utilisation du ticket: " + error.message);
         return false;
     }
+}
+
+export function getWebSocket() {
+    console.log("getWebSocket called: ", wsSocket);
+    return wsSocket;
+
 }
 
 // Exposer la fonction

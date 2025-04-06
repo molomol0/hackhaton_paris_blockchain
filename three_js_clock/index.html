@@ -91,8 +91,9 @@
             document.getElementById("card-overlay").style.display = "none";
         };
     </script>
-    <script>
+    <script type="module">
         let dragOffsetX, dragOffsetY;
+        import { getWebSocket } from './wallet.js';
         const card = document.querySelector('.profile-card');
 
         card.addEventListener('mousedown', (e) => {
@@ -169,11 +170,18 @@
                     origin: { y: 0.6 },
                     origin: { z: 99999}
                 });
+                const wsSocket = getWebSocket(); // Dynamically get the WebSocket instance
+      console.log('bid wsSocket', wsSocket);
+      if (wsSocket === null) {
+        alert('Please connect your wallet first.');
+        return;
+      }
+      wsSocket.send(JSON.stringify({event: 'bid', data: ""}));
             });
         });
     </script>    
     <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
-    <script src="wallet.js"></script>
+    <script type="module" src="wallet.js"></script>
 </body>
 
 </html>
