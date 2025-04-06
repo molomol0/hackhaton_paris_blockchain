@@ -41,41 +41,6 @@ const CONTRACT_ADDRESS = "0xeBa9c2c94a1Fc2e2A486D91ee1E6cC79ce7370e0";
 document.addEventListener('DOMContentLoaded', () => {
     const connectBtn = document.getElementById('connect-wallet');
     
-    //// Adresse de votre contrat déployé
-    //const CONTRACT_ADDRESS = "0x8b24fC16AF5FC008466b9188E34f342e2e164380";
-    //
-    //// ABI simplifiée du contrat
-    //const CONTRACT_ABI = [
-    //// Variables publiques
-    //"function owner() view returns (address)",
-    //"function ticketPrice() view returns (uint256)",
-    //"function nextClockId() view returns (uint256)",
-    //"function clocksNum() view returns (uint256)",
-    //
-    //// Mappings publics
-    //"function userTickets(address) view returns (uint256)",
-    //"function clocks(uint256) view returns (uint256 id, uint256 prize, address lastBidder, bool isActive, bool isFinalized)",
-    //
-    //// Fonctions d'achat et de gestion des tickets
-    //"function buyTickets(uint256 _amount) payable",
-    //"function getTicketPrice(uint256 _amount) view returns (uint256)",
-    //"function getTicketBalance(address _user) view returns (uint256)",
-    //
-    //// Fonctions de gestion des horloges
-    //"function createClock(uint256 _prize) payable",
-    //"function recordParticipation(uint256 clockId, address participant)",
-    //"function finalizeClock(uint256 clockId)",
-    //
-    //// Fonction admin
-    //"function withdraw(uint256 _amount)",
-    //
-    //// Événements
-    //"event TicketsPurchased(address indexed buyer, uint256 amount)",
-    //"event ClockCreated(uint256 indexed clockId, uint256 prize)",
-    //"event ParticipationRecorded(uint256 indexed clockId, address indexed participant)",
-    //"event ClockFinalized(uint256 indexed clockId, address winner, uint256 prize)"
-    //];
-    //
     connectBtn.addEventListener('click', async () => {
         try {
             // Vérifier si MetaMask est installé
@@ -175,15 +140,40 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     else if (data.event === 'end_clock') {
                         console.log("L'horloge est terminée:", data.data);
-                        alert(`L'horloge est terminée! Dernier enchérisseur: ${data.data.last_bidder || 'Aucun'}`);
                         
-                        // If the current user is the winner, show confetti
-                        if (data.data.last_bidder === sessionStorage.getItem('userId')) {
-                            confetti({
-                                particleCount: 200,
-                                spread: 100,
-                                origin: { x: 0.5, y: 0.5 }
-                            });
+                        // Get current user ID from session storage
+                        const currentUserId = sessionStorage.getItem('userId');
+                        const lastBidder = data.data.last_bidder;
+                        
+                        alert(`L'horloge est terminée! Dernier enchérisseur: ${lastBidder || 'Aucun'}`);
+                        
+                        // If the current user is the winner, show confetti and auto-finalize
+                        if (lastBidder && lastBidder === currentUserId) {
+                            // Show celebration effects
+                            if (typeof confetti === 'function') {
+                                confetti({
+                                    particleCount: 200,
+                                    spread: 100,
+                                    origin: { x: 0.5, y: 0.5 }
+                                });
+                            }
+                            
+                            // Auto-finalize the clock to claim reward after a short delay
+                            // Using clockId 1 as that appears to be the main game clock
+                            setTimeout(async () => {
+                                console.log("Auto-finalizing clock for winner");
+                                try {
+                                    const success = await finalizeClock(1);
+                                    if (success) {
+                                        console.log("Clock automatically finalized successfully");
+                                        alert("Félicitations! Vous avez réclamé votre récompense avec succès!");
+                                    } else {
+                                        console.error("Failed to auto-finalize clock");
+                                    }
+                                } catch (error) {
+                                    console.error("Error in auto-finalize:", error);
+                                }
+                            }, 3000); // Wait 3 seconds after the end notification before finalizing
                         }
                     }
                 } catch (error) {
@@ -449,8 +439,6 @@ async function finalizeClock(clockId) {
         return false;
     }
 }
-
-
 
 // Exposer la fonction globalement
 window.finalizeClock = finalizeClock;
