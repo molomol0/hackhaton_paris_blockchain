@@ -95,8 +95,114 @@ class LobbyConsumer(AsyncWebsocketConsumer):
 		await self.update_user_list({'action': 'add'})
 
 	async def bid(self, data):
-		await my_clock.add_time(self.userId)
-		print('did a bid')
+		# Get userId from data if available, otherwise use the one from connection
+		userId = data.get('userId', self.userId) if isinstance(data, dict) else self.userId
+		transactionHash = data.get('transactionHash') if isinstance(data, dict) else None
+		
+		print(f'User {userId} placed a bid' + (f' with tx: {transactionHash}' if transactionHash else ''))
+		
+		# Basic validation
+		if not userId:
+			await self.send(text_data=json.dumps({
+				"event": "bid_error",
+				"data": {"message": "Missing user ID"}
+			}))
+			return
+		
+		# Log the transaction hash if provided
+		if transactionHash:
+			print(f"Transaction hash: {transactionHash}")
+		
+		# Add time to the clock
+		old_time = my_clock.remaining_time
+		await my_clock.add_time(userId)
+		new_time = my_clock.remaining_time
+		
+		print(f"Time updated: {old_time} → {new_time}")
+		
+		# Reset the clock if it's not active
+		if not my_clock.is_active:
+			my_clock.is_active = True
+			# Start a new run_clock task
+			asyncio.create_task(my_clock.run_clock())
+		
+		# Send immediate feedback to all users
+		await self.channel_layer.group_send(
+			"lobby",
+			{
+				"type": "bid_notification",
+				"data": {
+					"bidder": userId,
+					"new_time": new_time,
+					"old_time": old_time,
+					"added_time": my_clock.bid_time,
+					"transaction_hash": transactionHash
+				}
+			}
+		)
+		
+		# Also send a direct confirmation to the bidder
+		await self.send(text_data=json.dumps({
+			"event": "bid_success",
+			"data": {
+				"message": "Your bid was successful",
+				"new_time": new_time,
+				"transaction_hash": transactionHash
+			}
+		}))
+
+	async def bid_notification(self, event):
+		# Send the bid notification to the WebSocket
+		await self.send(text_data=json.dumps({
+			"event": "bid_notification",
+			"data": event["data"],
+		}))
+
+	async def transaction_confirmed(self, data):
+		"""Handle transaction confirmations"""
+		userId = data.get('userId')
+		transactionHash = data.get('transactionHash')
+		
+		print(f"Transaction confirmed for user {userId}: {transactionHash}")
+		
+		# Log the confirmation, but no need to update the clock again
+		# since we already did when the transaction was initiated
+		
+		# Notify the specific user if you want
+		await self.send(text_data=json.dumps({
+			"event": "transaction_confirmed",
+			"data": {
+				"message": "Your transaction has been confirmed on the blockchain",
+				"transaction_hash": transactionHash
+			}
+		}))
+
+	async def process_event(self, text_data):
+		try:
+			text_data_json = json.loads(text_data)
+			event = text_data_json['event']
+			data = text_data_json['data']
+
+			# Dictionary mapping events to handler functions
+			event_handlers = {
+				'paddle_moved': self.send_lobby_message,
+				'connect': self.first_msg,
+				'bid': self.bid,
+				'transaction_confirmed': self.transaction_confirmed
+			}
+
+			# Get the handler function from the dictionary, default to handle_unknown_event
+			handler = event_handlers.get(event, self.handle_unknown_event)
+
+			# Call the handler function with the data
+			await handler(data)
+		except json.JSONDecodeError:
+			await self.send(text_data=json.dumps({"error": "Invalid JSON"}))
+		except KeyError:
+			await self.send(text_data=json.dumps({"error": "Missing event or data"}))
+		except Exception as e:
+			await self.send(text_data=json.dumps({"error": str(e)}))
+
 	
 	async def update_event(self, event):
         # Send the update event to the WebSocket

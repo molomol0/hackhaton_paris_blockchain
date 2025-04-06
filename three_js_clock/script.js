@@ -125,7 +125,6 @@ function addCircularImageTo(object, imagePath, size, depth, adjust) {
         });
         const circle = new THREE.Mesh(circleGeometry, circleMaterial);
         circle.position.set(0, 0.03 + adjust, depth);
-        // Remove this line: circle.rotation.x = Math.PI;
         object.add(circle);
     });
 }
@@ -436,6 +435,7 @@ function updateTimeDisplay(clockGroup, time) {
     ctx.strokeText(formattedTime, width / 2, height / 2);
     ctx.fillText(formattedTime, width / 2, height / 2);
 
+    // Make sure the texture updates
     texture.needsUpdate = true;
 }
 
@@ -455,20 +455,34 @@ function updateCriticalAnimation(clockGroup, delta) {
         if (isNowCritical) {
             // Calculate pulse effect (0.8-1.2 of original size)
             const clockScale = 0.3;
-            // make the timer font pulse
-            const fontSize = 48 + 20 * Math.sin(clock.getElapsedTime() * 5);
-            const ctx = clockGroup.userData.timeDisplay.ctx;
-            ctx.font = `bold ${fontSize}px 'Arial', sans-serif`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.clearRect(0, 0, clockGroup.userData.timeDisplay.width, clockGroup.userData.timeDisplay.height);
-            ctx.fillStyle = 'rgba(255, 0, 0, 0.9)';
-            ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
-            ctx.lineWidth = 6;
-            ctx.strokeText(metadata.time, clockGroup.userData.timeDisplay.width / 2, clockGroup.userData.timeDisplay.height / 2);
-            ctx.fillText(formatTime(metadata.time), clockGroup.userData.timeDisplay.width / 2, clockGroup.userData.timeDisplay.height / 2);
-            clockGroup.userData.timeDisplay.texture.needsUpdate = true;
-
+            
+            // Create a reference to the timeDisplay object and its context
+            const timeDisplay = clockGroup.userData.timeDisplay;
+            if (timeDisplay) {
+                const ctx = timeDisplay.ctx;
+                const width = timeDisplay.width;
+                const height = timeDisplay.height;
+                
+                // Clear the canvas completely first
+                ctx.clearRect(0, 0, width + 20, height + 20);
+                
+                // make the timer font pulse
+                const fontSize = 48 + 20 * Math.sin(clock.getElapsedTime() * 5);
+                ctx.font = `bold ${fontSize}px 'Arial', sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                
+                ctx.fillStyle = 'rgba(255, 0, 0, 0.9)';
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
+                ctx.lineWidth = 6;
+                
+                // Draw the time with the formatted value
+                const formattedTime = formatTime(metadata.time);
+                ctx.strokeText(formattedTime, width / 2, height / 2);
+                ctx.fillText(formattedTime, width / 2, height / 2);
+                
+                timeDisplay.texture.needsUpdate = true;
+            }
 
             // Apply pulsing effect
             clockGroup.scale.set(
@@ -1106,3 +1120,68 @@ function formatTime(seconds) {
 
     return `${pad(hours)}:${pad(minutes)}:${pad(secs)}`;
 }
+
+// Function to update the main clock time from WebSocket data
+window.updateClockTimeUI = function(seconds) {
+    console.log("updateClockTimeUI called with seconds:", seconds);
+    
+    // Only proceed if we have a valid number
+    if (seconds === undefined || seconds === null || isNaN(seconds)) {
+        console.warn("Invalid time value received:", seconds);
+        return;
+    }
+    
+    seconds = Number(seconds); // Ensure it's a number
+    
+    // Find the main clock
+    const mainClock = getClockById(0);
+    if (!mainClock) {
+        console.error("Main clock not found!");
+        return;
+    }
+    
+    // Get the metadata for the clock
+    const metadata = clockMetadataMap.get(0);
+    if (!metadata) {
+        console.error("Main clock metadata not found!");
+        return;
+    }
+    
+    // Update the metadata time
+    metadata.time = seconds;
+    console.log("Updated main clock time to", seconds, "seconds");
+    
+    // Simple update approach - just update the text in the existing display
+    if (mainClock.userData && mainClock.userData.timeDisplay) {
+        const display = mainClock.userData.timeDisplay;
+        
+        if (display.ctx && display.canvas) {
+            // Clear canvas
+            display.ctx.clearRect(0, 0, display.width, display.height);
+            
+            // Set text properties
+            const fontSize = display.isMainClock ? 400 : 48;
+            display.ctx.font = `bold ${fontSize}px 'Arial', sans-serif`;
+            display.ctx.textAlign = 'center';
+            display.ctx.textBaseline = 'middle';
+            display.ctx.fillStyle = 'rgba(255, 0, 0, 0.9)';
+            display.ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
+            display.ctx.lineWidth = 6;
+            
+            // Format and draw the time
+            const formattedTime = formatTime(seconds);
+            display.ctx.strokeText(formattedTime, display.width / 2, display.height / 2);
+            display.ctx.fillText(formattedTime, display.width / 2, display.height / 2);
+            
+            // Update the texture
+            display.texture.needsUpdate = true;
+            console.log("Clock display updated successfully");
+        } else {
+            console.error("Invalid display context or canvas");
+        }
+    } else {
+        console.error("Main clock has no timeDisplay object");
+        // Create a new display as fallback
+        createTimeDisplay(mainClock, seconds, 0.015);
+    }
+};
