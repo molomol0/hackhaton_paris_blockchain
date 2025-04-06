@@ -1,54 +1,9 @@
 Port 5172 is in use, trying another one...
+Port 5173 is in use, trying another one...
+Port 5174 is in use, trying another one...
+Port 5175 is in use, trying another one...
 
-  VITE v6.2.5  ready in 105 ms
+  VITE v6.2.5  ready in 149 ms
 
-  ➜  Local:   http://localhost:5173/
- 13:56:30 [vite] (client) page reload index.html
-13:58:38 [vite] (client) page reload index.html
-13:58:55 [vite] (client) page reload index.html
-13:58:59 [vite] (client) page reload index.html
-0 [vite] Pre-transform error: Failed to parse source for import analysis because the content contains invalid JS syntax. You may need to install appropriate plugins to handle the .js file format, or if it's an asset, add "**/*.js" to `assetsInclude` in your configuration.
-  Plugin: vite:import-analysis
-  File: /home/eldoc/Documents/hkhkhk/three_js_clock/index.html?html-proxy&index=0.js:1:1
-  1  |  
-     |  ^
-  2  |          let dragOffsetX, dragOffsetY;
-  3  |          import { getWebSocket } from './wallet.js';
-13:56:30 [vite] Internal server error: Failed to parse source for import analysis because the content contains invalid JS syntax. You may need to install appropriate plugins to handle the .js file format, or if it's an asset, add "**/*.js" to `assetsInclude` in your configuration.
-  Plugin: vite:import-analysis
-  File: /home/eldoc/Documents/hkhkhk/three_js_clock/index.html?html-proxy&index=0.js:1:1
-  1  |  
-     |  ^
-  2  |          let dragOffsetX, dragOffsetY;
-  3  |          import { getWebSocket } from './wallet.js';
-      at TransformPluginContext._formatLog (file:///home/eldoc/.npm/_npx/9ed06546b0653f96/node_modules/vite/dist/node/chunks/dep-Pj_jxEzN.js:47885:41)
-      at TransformPluginContext.error (file:///home/eldoc/.npm/_npx/9ed06546b0653f96/node_modules/vite/dist/node/chunks/dep-Pj_jxEzN.js:47882:16)
-      at TransformPluginContext.transform (file:///home/eldoc/.npm/_npx/9ed06546b0653f96/node_modules/vite/dist/node/chunks/dep-Pj_jxEzN.js:45966:14)
-      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
-      at async EnvironmentPluginContainer.transform (file:///home/eldoc/.npm/_npx/9ed06546b0653f96/node_modules/vite/dist/node/chunks/dep-Pj_jxEzN.js:47680:18)
-      at async loadAndTransform (file:///home/eldoc/.npm/_npx/9ed06546b0653f96/node_modules/vite/dist/node/chunks/dep-Pj_jxEzN.js:41327:27)
-      at async viteTransformMiddleware (file:///home/eldoc/.npm/_npx/9ed06546b0653f96/node_modules/vite/dist/node/chunks/dep-Pj_jxEzN.js:42807:24)
-13:58:38 [vite] (client) page reload index.html
-13:58:55 [vite] (client) page reload index.html
-13:58:55 [vite] Pre-transform error: Failed to parse source for import analysis because the content contains invalid JS syntax. You may need to install appropriate plugins to handle the .js file format, or if it's an asset, add "**/*.js" to `assetsInclude` in your configuration.
-  Plugin: vite:import-analysis
-  File: /home/eldoc/Documents/hkhkhk/three_js_clock/index.html?html-proxy&index=0.js:1:1
-  1  |  
-     |  ^
-  2  |          let dragOffsetX, dragOffsetY;
-  3  |          import { getWebSocket } from './wallet.js';
-13:58:55 [vite] Internal server error: Failed to parse source for import analysis because the content contains invalid JS syntax. You may need to install appropriate plugins to handle the .js file format, or if it's an asset, add "**/*.js" to `assetsInclude` in your configuration.
-  Plugin: vite:import-analysis
-  File: /home/eldoc/Documents/hkhkhk/three_js_clock/index.html?html-proxy&index=0.js:1:1
-  1  |  
-     |  ^
-  2  |          let dragOffsetX, dragOffsetY;
-  3  |          import { getWebSocket } from './wallet.js';
-      at TransformPluginContext._formatLog (file:///home/eldoc/.npm/_npx/9ed06546b0653f96/node_modules/vite/dist/node/chunks/dep-Pj_jxEzN.js:47885:41)
-      at TransformPluginContext.error (file:///home/eldoc/.npm/_npx/9ed06546b0653f96/node_modules/vite/dist/node/chunks/dep-Pj_jxEzN.js:47882:16)
-      at TransformPluginContext.transform (file:///home/eldoc/.npm/_npx/9ed06546b0653f96/node_modules/vite/dist/node/chunks/dep-Pj_jxEzN.js:45966:14)
-      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
-      at async EnvironmentPluginContainer.transform (file:///home/eldoc/.npm/_npx/9ed06546b0653f96/node_modules/vite/dist/node/chunks/dep-Pj_jxEzN.js:47680:18)
-      at async loadAndTransform (file:///home/eldoc/.npm/_npx/9ed06546b0653f96/node_modules/vite/dist/node/chunks/dep-Pj_jxEzN.js:41327:27)
-      at async viteTransformMiddleware (file:///home/eldoc/.npm/_npx/9ed06546b0653f96/node_modules/vite/dist/node/chunks/dep-Pj_jxEzN.js:42807:24)
-13:58:59 [vite] (client) page reload index.html
+  ➜  Local:   http://localhost:5176/
+  ➜  Network: http://192.168.137.36:5176/

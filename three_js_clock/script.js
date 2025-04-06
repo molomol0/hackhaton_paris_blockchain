@@ -198,7 +198,7 @@ function createNewClock(size, speed, adjust, depth, imagePath, owner = "default"
 
             let positionFound = false;
             let bestPosition = null;// After creating mainClock:
-            createTimeDisplay(mainClock, 200000, 0.015);
+            //createTimeDisplay(mainClock, 200000, 0.015);
             updateTimeDisplay(mainClock, 200000, true); // Make it transparent
             let minOverlap = Infinity;
             const maxAttempts = 100;
