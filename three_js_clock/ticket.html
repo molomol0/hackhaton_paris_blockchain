@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+   <head>
+      <meta charset="utf-8">
+      <title>Tickets</title>
+      <link rel="stylesheet" href="ticket.css">
+      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css"/>
+   </head>
+   <body>
+        <div class="container">
+            <div class="wrapper">
+                <div class="card front-face">
+                    <img src="assets/ticket_1.png">
+                </div>
+                <div class="card back-face">
+                    <img src="assets/1.png">
+                    <div class="info">
+                    <div class="title">
+                        1 Clock ticket
+                    </div>
+                    <p>
+                        0,25 FTN
+                    </p>
+                    </div>
+                    <div class="purchase">
+                        <a href="#" class="buy-btn" data-amount="1">buy</a>
+                    </div>
+                </div>
+            </div>
+            <div class="wrapper">
+                <div class="card front-face">
+                    <img src="assets/ticket_10.png">
+                </div>
+                <div class="card back-face">
+                    <img src="assets/10.png">
+                    <div class="info">
+                    <div class="title">
+                        10 Clock ticket
+                    </div>
+                    <p>
+                        2 FTN
+                    </p>
+                    </div>
+                    <div class="purchase">
+                        <a href="#" class="buy-btn" data-amount="10">buy</a>
+                    </div>
+                </div>
+            </div>
+            <div class="wrapper">
+                <div class="card front-face">
+                    <img src="assets/ticket_100.png">
+                </div>
+                <div class="card back-face">
+                    <img src="assets/100.png">
+                    <div class="info">
+                    <div class="title">
+                        100 Clock ticket
+                    </div>
+                    <p>
+                        18 FTN
+                    </p>
+                    </div>
+                    <div class="purchase">
+                        <a href="#" class="buy-btn" data-amount="100">buy</a>
+                    </div>
+                </div>
+            </div>
+            <div class="wrapper">
+                <div class="card front-face">
+                    <img src="assets/ticket_1000.png">
+                </div>
+                <div class="card back-face">
+                    <img src="assets/1000.png">
+                    <div class="info">
+                    <div class="title">
+                        1000 Clock ticket
+                    </div>
+                        <p>
+                            150 FTN
+                        </p>
+                    </div>
+                    <div class="purchase">
+                        <a href="#" class="buy-btn" data-amount="1000">buy</a>
+                    </div>
+            </div>
+        </div>
+    <div class="go home">
+        <a href="index.html" class="btn top-left">Go back</a>
+        <button id="connect-wallet" class="btn top-right">Connect your wallet</button>
+        <div id="wallet-info" style="display: none; position: fixed; top: 70px; right: 20px; background: rgba(0,0,0,0.7); padding: 10px; border-radius: 5px; color: white; z-index: 100;">
+          <p><strong>Adresse:</strong> <span id="wallet-address">-</span></p>
+          <p><strong>Tickets:</strong> <span id="user-tickets">-</span></p>
+        </div>
+    </div>
+
+    <!-- Notification pour les transactions -->
+    <div id="notification" style="display: none; position: fixed; bottom: 20px; right: 20px; background: rgba(33, 186, 69, 0.9); color: white; padding: 15px; border-radius: 5px; z-index: 1000; max-width: 300px;"></div>
+
+    <!-- Ajouter ethers.js depuis un CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    
+    <!-- Script pour l'achat de tickets -->
+    <script src="buyTicket.js"></script>
+   </body>
+</html>

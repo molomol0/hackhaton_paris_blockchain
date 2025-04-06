@@ -1,0 +1,9 @@
+node_modules/
+artifacts/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.vscode

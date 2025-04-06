@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connexion Wallet</title>
+    <style>
+        body {
+            font-family: Arizal, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f5f5f5;
+        }
+        button {
+            background-color: #f6851b;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+        #wallet-info {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #fff;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>Connexion à MetaMask</h1>
+    <button id="connect-wallet">Connecter avec MetaMask</button>
+    
+    <div id="wallet-info">
+        <h2>Informations du wallet</h2>
+        <p><strong>Adresse:</strong> <span id="wallet-address">-</span></p>
+        <p><strong>Tickets:</strong> <span id="user-tickets">-</span></p>
+    </div>
+
+    <!-- Ajouter ethers.js depuis un CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <!-- Votre fichier wallet.js -->
+    <script src="wallet.js"></script>
+</body>
+</html>
