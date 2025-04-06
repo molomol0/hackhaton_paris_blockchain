@@ -3,7 +3,6 @@ pragma solidity ^0.8.0;
 
 contract LastBidderWin {
     address public owner;
-    address public authority;
     uint256 public ticketPrice;
     
     struct Clock {
@@ -16,22 +15,15 @@ contract LastBidderWin {
 
     mapping(address => uint256) public userTickets;
     mapping(uint256 => Clock) public clocks;
-    mapping(uint256 => mapping(address => bool)) public hasParticipated;
     uint256 public nextClockId = 1;
     
     event TicketsPurchased(address indexed buyer, uint256 amount);
     event ClockCreated(uint256 indexed clockId, uint256 prize);
     event ParticipationRecorded(uint256 indexed clockId, address indexed participant);
     event ClockFinalized(uint256 indexed clockId, address winner, uint256 prize);
-    event AuthorityUpdated(address previousAuthority, address newAuthority);
     
     modifier onlyOwner() {
         require(msg.sender == owner, "Only owner can call this function");
-        _;
-    }
-    
-    modifier onlyAuthority() {
-        require(msg.sender == authority, "Only authorized authority can call this function");
         _;
     }
     
@@ -42,7 +34,6 @@ contract LastBidderWin {
     
     constructor() {
         owner = msg.sender;
-        authority = 0x700F8bddc3999b830Fd0F36B67aA7527C166c112;
         ticketPrice = 250000000000000000; // 0.25 FTN
     }
     
@@ -61,7 +52,7 @@ contract LastBidderWin {
         emit TicketsPurchased(msg.sender, _amount);
     }
     
-    function createClock(uint256 _prize) external payable onlyAuthority {
+    function createClock(uint256 _prize) external payable {
         require(msg.value >= _prize, "Must provide the prize amount");
         
         uint256 clockId = nextClockId;
@@ -79,7 +70,7 @@ contract LastBidderWin {
         emit ClockCreated(clockId, _prize);
     }
     
-    function recordParticipation(uint256 clockId, address participant) external onlyAuthority clockExists(clockId) {
+    function recordParticipation(uint256 clockId, address participant) external clockExists(clockId) {
         Clock storage clock = clocks[clockId];
         
         require(clock.isActive, "Clock is not active");
@@ -88,40 +79,32 @@ contract LastBidderWin {
         
         userTickets[participant]--;
         
-        hasParticipated[clockId][participant] = true;
-        
+        clock.prize += ticketPrice;
         clock.lastBidder = participant;
         
         emit ParticipationRecorded(clockId, participant);
     }
     
-    function finalizeClock(uint256 clockId, address winner) external onlyAuthority clockExists(clockId) {
+    function finalizeClock(uint256 clockId) external clockExists(clockId) {
         Clock storage clock = clocks[clockId];
-        
+
         require(clock.isActive, "Clock is not active");
         require(!clock.isFinalized, "Clock is already finalized");
-        require(hasParticipated[clockId][winner], "Winner must have participated");
-        
+
+        // Vérifier qu'il y a eu au moins un participant
+        require(clock.lastBidder != address(0), "No participants in the clock");
+
         clock.isActive = false;
         clock.isFinalized = true;
-        
-        uint256 prize = clock.prize;
-        payable(winner).transfer(prize);
-        
-        emit ClockFinalized(clockId, winner, prize);
-    }
-    
-    function changeAuthority(address _newAuthority) external onlyOwner {
-        require(_newAuthority != address(0), "Invalid address");
-        
-        address oldAuthority = authority;
-        authority = _newAuthority;
-        
-        emit AuthorityUpdated(oldAuthority, _newAuthority);
-    }
 
-    function setTicketPrice(uint256 _newPrice) external onlyAuthority {
-        ticketPrice = _newPrice;
+        uint256 prize = clock.prize;
+        address payable winner = payable(clock.lastBidder);
+
+        // Transférer le prix au gagnant
+        (bool success, ) = winner.call{value: prize}("");
+        require(success, "Transfer failed");
+
+        emit ClockFinalized(clockId, winner, prize);
     }
     
     function getTicketPrice(uint256 _amount) public view returns (uint256) {
@@ -130,10 +113,6 @@ contract LastBidderWin {
     
     function getTicketBalance(address _user) external view returns (uint256) {
         return userTickets[_user];
-    }
-    
-    function hasUserParticipated(uint256 clockId, address user) external view clockExists(clockId) returns (bool) {
-        return hasParticipated[clockId][user];
     }
     
     function withdraw(uint256 _amount) external onlyOwner {
