@@ -343,35 +343,35 @@ function createTimeDisplay(clockGroup, initialTime = 0, depth = 0) {
     }
 
     const isMainClock = clockGroup.userData.id === 0;
-    
+
     // Create canvas with appropriate size
     const canvas = document.createElement('canvas');
     const width = isMainClock ? 10000 : 400;
     const height = isMainClock ? 3000 : 100;
     canvas.width = width;
     canvas.height = height;
-    
+
     // Create texture
     const texture = new THREE.CanvasTexture(canvas);
     if (renderer.capabilities) {
         texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
     }
-    
+
     // Create plane
     const planeWidth = isMainClock ? 1.5 : 2.0;
     const planeHeight = isMainClock ? 0.4 : 0.5;
     const geometry = new THREE.PlaneGeometry(planeWidth, planeHeight);
-    
+
     const material = new THREE.MeshBasicMaterial({
         map: texture,
         transparent: true,
         opacity: 0.95,
         depthTest: false
     });
-    
+
     const plane = new THREE.Mesh(geometry, material);
     plane.position.set(0, isMainClock ? 0 : -0.1, isMainClock ? depth + 0.025 : depth + 0.2);
-    
+
     // Store references safely
     clockGroup.userData.timeDisplay = {
         canvas: canvas,
@@ -382,17 +382,17 @@ function createTimeDisplay(clockGroup, initialTime = 0, depth = 0) {
         width: width,
         height: height
     };
-    
+
     // Initial render
     updateTimeDisplay(clockGroup, initialTime);
-    
+
     // Safely add to clock group
     if (clockGroup instanceof THREE.Object3D) {
         clockGroup.add(plane);
     } else {
         console.error("clockGroup is not a valid THREE.Object3D", clockGroup);
     }
-    
+
     return plane;
 }
 
@@ -402,23 +402,23 @@ function updateTimeDisplay(clockGroup, time) {
         console.error("Cannot update time display - invalid clockGroup or missing timeDisplay");
         return;
     }
-    
+
     const { canvas, ctx, texture, isMainClock, width, height } = clockGroup.userData.timeDisplay;
     const formattedTime = formatTime(time);
-    
+
     // Clear canvas
     ctx.clearRect(0, 0, width, height);
-    
+
     // Set text properties - change color if critical
     const fontSize = isMainClock ? 400 : 48;
     ctx.font = `bold ${fontSize}px 'Arial', sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    
+
     // Change color to flashing red if time is critical
     const metadata = clockMetadataMap.get(clockGroup.userData.id);
     const isCritical = metadata && metadata.time <= 30;
-    
+
     if (isCritical) {
         console.log("Critical time detected for clock ID:", clockGroup.userData.id);
         // Flashing effect
@@ -428,29 +428,29 @@ function updateTimeDisplay(clockGroup, time) {
     } else {
         ctx.fillStyle = 'rgba(255, 0, 0, 0.9)';
     }
-    
+
     // Draw text
     ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
     ctx.lineWidth = 6;
-    ctx.strokeText(formattedTime, width/2, height/2);
-    ctx.fillText(formattedTime, width/2, height/2);
-    
+    ctx.strokeText(formattedTime, width / 2, height / 2);
+    ctx.fillText(formattedTime, width / 2, height / 2);
+
     texture.needsUpdate = true;
 }
 
 function updateCriticalAnimation(clockGroup, delta) {
     if (!clockGroup.userData?.id) return;
-    
+
     const metadata = clockMetadataMap.get(clockGroup.userData.id);
     if (!metadata) return;
-    
+
     // Check if time is critical (below 30 seconds)
     const isNowCritical = metadata.time <= 30;
-    
+
     // Only proceed if state changed or we're in critical mode
     if (isNowCritical || metadata.isCritical) {
         metadata.isCritical = isNowCritical;
-        
+
         if (isNowCritical) {
             // Calculate pulse effect (0.8-1.2 of original size)
             const clockScale = 0.3;
@@ -464,18 +464,18 @@ function updateCriticalAnimation(clockGroup, delta) {
             ctx.fillStyle = 'rgba(255, 0, 0, 0.9)';
             ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
             ctx.lineWidth = 6;
-            ctx.strokeText(metadata.time, clockGroup.userData.timeDisplay.width/2, clockGroup.userData.timeDisplay.height/2);      
-            ctx.fillText(formatTime(metadata.time), clockGroup.userData.timeDisplay.width/2, clockGroup.userData.timeDisplay.height/2);
+            ctx.strokeText(metadata.time, clockGroup.userData.timeDisplay.width / 2, clockGroup.userData.timeDisplay.height / 2);
+            ctx.fillText(formatTime(metadata.time), clockGroup.userData.timeDisplay.width / 2, clockGroup.userData.timeDisplay.height / 2);
             clockGroup.userData.timeDisplay.texture.needsUpdate = true;
 
-            
+
             // Apply pulsing effect
             clockGroup.scale.set(
                 metadata.originalSize * clockScale,
                 metadata.originalSize * clockScale,
                 metadata.originalSize * clockScale
             );
-            
+
             // Add slight random rotation for shiver effect
             clockGroup.rotation.z = (Math.random() - 0.5) * 0.1;
             clockGroup.rotation.x = (Math.random() - 0.5) * 0.1;
@@ -642,7 +642,7 @@ function animate() {
     // Update all clocks' critical animations
     clockObjects.forEach(clock => {
         updateCriticalAnimation(clock, delta);
-        
+
     });
 
     if (big_mixer) big_mixer.update(delta * 0.05);
@@ -691,6 +691,33 @@ function showCard() {
 
     // Update the card elements
     const card = document.querySelector('.profile-card');
+
+    // Get the use ticket button
+    const useTicketButton = document.getElementById('use-ticket-button');
+
+    // Si c'est l'horloge principale (ID 0), configurer le gestionnaire du bouton Use Ticket
+    if (clockId === 0) {
+        useTicketButton.style.display = 'block'; // Afficher le bouton
+
+        // Supprimer les gestionnaires d'événements existants
+        const newUseTicketButton = useTicketButton.cloneNode(true);
+        useTicketButton.parentNode.replaceChild(newUseTicketButton, useTicketButton);
+
+        // Ajouter un nouveau gestionnaire d'événements
+        newUseTicketButton.addEventListener('click', function () {
+            // Participer à l'horloge 1
+            if (typeof window.recordParticipation === 'function') {
+                window.recordParticipation(1);
+            } else {
+                console.error("La fonction recordParticipation n'est pas disponible");
+                alert("Erreur: Connexion au portefeuille non établie");
+            }
+        });
+    } else {
+        // Pour les autres horloges, on cache le bouton Use Ticket
+        useTicketButton.style.display = 'none';
+    }
+
     // Update owner name
     const nameElement = card.querySelector('.name');
     nameElement.textContent = metadata.owner || "Unknown Owner";
@@ -996,21 +1023,3 @@ document.getElementById('clearClocksButton').addEventListener('click', function 
     clockObjects = []; // Clear the array that holds clock references
     alert("Clocks have been cleared from localStorage.");
 });
-
-// Helper function to format time as HH:MM:SS
-function formatTime(seconds) {
-    if (seconds === undefined || seconds === null) return "00:00:00";
-    
-    // Ensure seconds is a number
-    seconds = Number(seconds);
-    
-    // Calculate hours, minutes, and remaining seconds
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = Math.floor(seconds % 60);
-    
-    // Format each component to 2 digits
-    const pad = (num) => num.toString().padStart(2, '0');
-    
-    return `${pad(hours)}:${pad(minutes)}:${pad(secs)}`;
-}
