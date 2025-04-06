@@ -19,11 +19,9 @@ class ConnectView(APIView):
     def post(self, request):
         data = request.data
         wallet = data.get('walletAddress')
-        signature = data.get('signature')
-        message = data.get('message')
         
-        if not wallet or not signature or not message:
-            return Response({'error': 'Wallet, signature, and message are required.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not wallet :
+            return Response({'error': 'Wallet  is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
         #if not Account.is_address(wallet):
         #    return JsonResponse({'success': False, 'message': 'Invalid wallet address'}, status=status.HTTP_400_BAD_REQUEST)

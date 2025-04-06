@@ -1,5 +1,6 @@
 // On attend que la page soit chargée
 let contract;
+export let wsSocket = null;
 
 const CONTRACT_ADDRESS = "0xeBa9c2c94a1Fc2e2A486D91ee1E6cC79ce7370e0";
     
@@ -100,9 +101,7 @@ document.addEventListener('DOMContentLoaded', () => {
                   'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                  walletAddress: account,
-                  signature: signature, // Send the signed message
-                  message: message, // Send the message that was signed
+                  walletAddress: account
                 }),
             }).then((response) => {
                 if (!response.ok) {
@@ -263,3 +262,63 @@ export function getWebSocket() {
 
 // Exposer la fonction
 window.recordParticipation = recordParticipation;
+
+// Fonction pour finaliser une horloge
+async function finalizeClock(clockId) {
+    try {
+        // Vérifier si MetaMask est installé
+        if (!window.ethereum) {
+            alert("MetaMask n'est pas installé. Veuillez l'installer pour continuer.");
+            return false;
+        }
+        
+        // Demander l'accès au compte s'il n'est pas déjà connecté
+        let accounts;
+        try {
+            accounts = await window.ethereum.request({ method: 'eth_accounts' });
+            if (accounts.length === 0) {
+                accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+            }
+        } catch (error) {
+            console.error("Erreur lors de la connexion au wallet:", error);
+            alert("Erreur: Impossible de se connecter au wallet");
+            return false;
+        }
+        
+        const account = accounts[0];
+        
+        // Vérifier si ethers.js est disponible
+        if (!window.ethers) {
+            alert("ethers.js n'est pas chargé. Vérifiez votre connexion internet.");
+            return false;
+        }
+        
+        // Initialiser le contrat si nécessaire
+        if (!contract) {
+            const provider = new ethers.providers.Web3Provider(window.ethereum);
+            const signer = provider.getSigner();
+            contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+            window.contract = contract;
+        }
+        
+        console.log(`Finalisation de l'horloge ${clockId}...`);
+        
+        // Appeler la fonction finalizeClock du contrat
+        const tx = await contract.finalizeClock(clockId);
+        console.log(`Transaction envoyée: ${tx.hash}`);
+        
+        // Attendre la confirmation de la transaction
+        await tx.wait();
+        console.log("Horloge finalisée avec succès!");
+        alert("Horloge finalisée avec succès!");
+        
+        return true;
+    } catch (error) {
+        console.error("Erreur lors de la finalisation de l'horloge:", error);
+        alert(`Erreur lors de la finalisation de l'horloge: ${error.message || error}`);
+        return false;
+    }
+}
+
+// Exposer la fonction globalement
+window.finalizeClock = finalizeClock;
