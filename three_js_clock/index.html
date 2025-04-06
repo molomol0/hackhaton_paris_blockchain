@@ -1,21 +1,65 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Three.js Clock Interaction</title>
-  <link rel="stylesheet" href="style.css" />
-  <link href="https://unpkg.com/boxicons@2.1.2/css/boxicons.min.css" rel="stylesheet" />
-</head>
-<body>
-  <div id="ui">
-    <a href="ticket.html" class="btn top-right">Tickets</a>
-    <button id="connect-wallet" class="btn top-right-2">Connect your wallet</button>
-    <a href="faq.html" class="btn bottom-right">Q&A</a>
-    <a href="partner.html" class="btn top-left">Partners</a>
-  </div>
 
-  <!-- Card Overlay -->
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Three.js Clock Interaction</title>
+    <link rel="stylesheet" href="style.css" />
+    <link href="https://unpkg.com/boxicons@2.1.2/css/boxicons.min.css" rel="stylesheet" />
+</head>
+
+<body>
+    <div id="ui">
+        <a href="ticket.html" class="btn top-right">Tickets</a>
+        <!-- <button id="connect-wallet" class="btn top-right-2">Connect your wallet</button> -->
+        <a href="faq.html" class="btn bottom-right">Q&A</a>
+        <a href="partner.html" class="btn top-left">Partners</a>
+    </div>
+
+    <div id="leaderboard">
+        <div class="leaderboard">
+            <h2>Biggest winners</h2>
+            <ul id="leaderboard-list">
+                <li>JohnDoe - 1832 FTN</li>
+                <li>JaneSmith - 1515 FTN</li>
+                <li>MikeJohnson - 1124 FTN</li>
+                <li>AmyBrown - 1118 FTN</li>
+                <li>ChrisLee - 1092 FTN</li>
+                <li>PatriciaDavis - 947 FTN</li>
+                <li>DavidMartinez - 944 FTN</li>
+                <li>EmilyClark - 780 FTN</li>
+                <li>JamesWalker - 780 FTN</li>
+                <li>LindaHernandez - 712 FTN</li>
+            </ul>
+        </div>
+    </div>
+
+    <div id="chat-container">
+        <!-- Chat Header -->
+        <div id="chat-header">
+            <span class="chat-title">Chat</span>
+            <div class="chat-number-container">
+                <span class="chat-number">346</span>
+                <span class="green-dot"></span>
+            </div>
+        </div>
+    
+        <div id="chat-box">
+            <div class="message">
+                <span class="username">JohnDoe:</span> That's the best site ever!
+            </div>
+            <div class="message">
+                <span class="username">JaneSmith:</span> Long live Bahamut!
+            </div>
+            <div class="message">
+                <span class="username">MikeJohnson:</span> I just won a clock!
+            </div>
+        </div>
+        <input type="text" id="chat-input" placeholder="Type a message..." />
+    </div>
+    
+    <!-- Card Overlay -->
     <div id="card-overlay" onclick="hideCard()">
         <div class="profile-card" onclick="event.stopPropagation()">
             <div class="image">
@@ -38,39 +82,78 @@
     </div>
     <button id="clearClocksButton">Clear Clocks</button>
 
+    <script type="module" src="./script.js"></script>
+    <script>
+        window.showCard = function () {
+            document.getElementById("card-overlay").style.display = "block";
+        };
+        window.hideCard = function () {
+            document.getElementById("card-overlay").style.display = "none";
+        };
+    </script>
+    <script>
+        let dragOffsetX, dragOffsetY;
+        const card = document.querySelector('.profile-card');
 
-  <script type="module" src="./script.js"></script>
-  <script>
-    window.showCard = function () {
-      document.getElementById("card-overlay").style.display = "block";
-    };
-    window.hideCard = function () {
-      document.getElementById("card-overlay").style.display = "none";
-    };
-  </script>
-  <script>
-    let dragOffsetX, dragOffsetY;
-    const card = document.querySelector('.profile-card');
-  
-    card.addEventListener('mousedown', (e) => {
-      dragOffsetX = e.clientX - card.offsetLeft;
-      dragOffsetY = e.clientY - card.offsetTop;
-      document.addEventListener('mousemove', dragMove);
-      document.addEventListener('mouseup', dragEnd);
-    });
-  
-    function dragMove(e) {
-      card.style.left = (e.clientX - dragOffsetX) + 'px';
-      card.style.top = (e.clientY - dragOffsetY) + 'px';
-      card.style.position = 'absolute'; // Ensure it's absolutely positioned
-    }
-  
-    function dragEnd() {
-      document.removeEventListener('mousemove', dragMove);
-      document.removeEventListener('mouseup', dragEnd);
-    }
-  </script>
-  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
-  <script src="wallet.js"></script>
+        card.addEventListener('mousedown', (e) => {
+            dragOffsetX = e.clientX - card.offsetLeft;
+            dragOffsetY = e.clientY - card.offsetTop;
+            document.addEventListener('mousemove', dragMove);
+            document.addEventListener('mouseup', dragEnd);
+        });
+
+        function dragMove(e) {
+            card.style.left = (e.clientX - dragOffsetX) + 'px';
+            card.style.top = (e.clientY - dragOffsetY) + 'px';
+            card.style.position = 'absolute'; // Ensure it's absolutely positioned
+        }
+
+        function dragEnd() {
+            document.removeEventListener('mousemove', dragMove);
+            document.removeEventListener('mouseup', dragEnd);
+        }
+    </script>
+    <script>
+        const chatNumber = document.querySelector('.chat-number');
+        let current = 200;
+    
+        function updateToRandomTarget() {
+            // Generate a target within ±200, clamped between 0 and 9999
+            let offset = Math.floor(Math.random() * 201); // [-200, +200]
+            let target = Math.max(0, Math.min(9999, current + offset));
+    
+            const duration = 2000; // 5 seconds
+            const frameRate = 30;
+            const totalFrames = duration / (1000 / frameRate);
+            const step = (target - current) / totalFrames;
+    
+            let frame = 0;
+    
+            const interval = setInterval(() => {
+                frame++;
+                current += step;
+                chatNumber.textContent = Math.round(current);
+    
+                if (frame >= totalFrames) {
+                    current = target;
+                    chatNumber.textContent = target;
+                    clearInterval(interval);
+    
+                    // Wait 3 seconds before starting the next update
+                    setTimeout(updateToRandomTarget, 3000);
+                }
+            }, 1000 / frameRate);
+        }
+    
+        window.onload = () => {
+            chatNumber.textContent = current;
+            setTimeout(updateToRandomTarget, 3000); // Initial delay
+        };
+    </script>
+    
+    
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <!-- <script src="wallet.js"></script> -->
 </body>
+
 </html>

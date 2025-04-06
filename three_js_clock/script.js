@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { CSS3DRenderer } from 'three/examples/jsm/renderers/CSS3DRenderer.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 // Scene setup
@@ -11,6 +12,13 @@ camera.position.copy(originalCameraPosition);
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
+
+const cssRenderer = new CSS3DRenderer();
+cssRenderer.setSize(window.innerWidth, window.innerHeight);
+cssRenderer.domElement.style.position = 'absolute';
+cssRenderer.domElement.style.top = '0';
+cssRenderer.domElement.style.pointerEvents = 'none';
+document.body.appendChild(cssRenderer.domElement);
 
 // Lighting
 const directionalLight = new THREE.DirectionalLight(0xffffff, 7);
@@ -48,7 +56,28 @@ let dragPlane = new THREE.Plane();
 const loader = new GLTFLoader();
 const textureLoader = new THREE.TextureLoader();
 
+// Clock metadata structure
+class ClockMetadata {
+    constructor(id, owner, time, size, speed, adjust, depth, imagePath) {
+        this.id = id;
+        this.owner = owner;
+        this.time = time;
+        this.size = size;
+        this.speed = speed;
+        this.adjust = adjust;
+        this.depth = depth;
+        this.imagePath = imagePath;
+        this.position = [0, 0, 0];
+    }
+}
+
+// Add these near your other global variables
+let clockIds = [];
+let clockMetadataMap = new Map(); // Maps clock IDs to their metadata
+let nextClockId = 1; // Auto-incrementing ID counter
+
 // Load main clock
+// In the main clock loader:
 loader.load('/assets/clock_low_poly/scene.gltf', (gltf) => {
     const model = gltf.scene;
     model.traverse((child) => {
@@ -66,10 +95,20 @@ loader.load('/assets/clock_low_poly/scene.gltf', (gltf) => {
     }
 
     mainClock = new THREE.Group();
+    mainClock.userData.id = 0; // Add this line to give mainClock an ID
     mainClock.add(model);
     mainClock.scale.set(18, 18, 18);
     scene.add(mainClock);
     clockObjects.push(mainClock);
+    // After creating mainClock:
+    createTimeDisplay(mainClock, 200000, 0.015);
+    updateTimeDisplay(mainClock, 200000, true); // Make it transparent
+
+    // Create and store metadata for main clock
+    const metadata = new ClockMetadata(0, "system", 200000, 18, 1, 0, 0.015, '/assets/bahamut.png');
+    clockMetadataMap.set(0, metadata);
+    clockIds.push(0);
+
     addCircularImageTo(mainClock, '/assets/bahamut.png', 0.15, 0.015, 0);
 });
 
@@ -77,10 +116,10 @@ loader.load('/assets/clock_low_poly/scene.gltf', (gltf) => {
 function addCircularImageTo(object, imagePath, size, depth, adjust) {
     const circleGeometry = new THREE.CircleGeometry(size, 50);
     textureLoader.load(imagePath, (texture) => {
-        const circleMaterial = new THREE.MeshBasicMaterial({ 
-            map: texture, 
-            side: THREE.DoubleSide, 
-            transparent: true 
+        const circleMaterial = new THREE.MeshBasicMaterial({
+            map: texture,
+            side: THREE.DoubleSide,
+            transparent: true
         });
         const circle = new THREE.Mesh(circleGeometry, circleMaterial);
         circle.position.set(0, 0.03 + adjust, depth);
@@ -89,166 +128,270 @@ function addCircularImageTo(object, imagePath, size, depth, adjust) {
     });
 }
 
-function saveClockToLocalStorage(clockGroup, size, speed, adjust, depth, imagePath) {
+function saveClockToLocalStorage(clockGroup, size, speed, adjust, depth, imagePath, owner, time) {
+    const id = clockGroup.userData.id;
+    if (id === undefined) {
+        console.error("Trying to save clock with undefined ID:", clockGroup);
+        return;
+    }
     const clockData = {
+        id: id,
         position: clockGroup.position.toArray(),
-        scale: [size, size, size], // Save the intended size, not current scale
+        scale: [size, size, size],
         imagePath: imagePath,
-        size: size, // The base size parameter
+        size: size,
         depth: depth,
         adjust: adjust,
-        speed: speed
+        speed: speed,
+        owner: owner,
+        time: time
     };
 
     let savedClocks = JSON.parse(localStorage.getItem('clocks')) || [];
-    
-    // Check for duplicates based on position and image
-    const isDuplicate = savedClocks.some(savedClock => {
-        return Math.abs(savedClock.position[0] - clockData.position[0]) < 0.1 &&
-               Math.abs(savedClock.position[1] - clockData.position[1]) < 0.1 &&
-               savedClock.imagePath === clockData.imagePath;
-    });
 
-    if (!isDuplicate) {
+    // Check for duplicates based on ID
+    const existingIndex = savedClocks.findIndex(c => c.id === id);
+    if (existingIndex >= 0) {
+        savedClocks[existingIndex] = clockData;
+    } else {
         savedClocks.push(clockData);
-        localStorage.setItem('clocks', JSON.stringify(savedClocks));
     }
+
+    localStorage.setItem('clocks', JSON.stringify(savedClocks));
 }
 
 // Create new clocks
-function createNewClock(size, speed, adjust, depth, imagePath) {
-loader.load('/assets/clock_low_poly/scene.gltf', (gltf) => {
-        const model = gltf.scene;
-        model.scale.set(size, size, size);
-        model.rotation.set(0, 0, 0); 
-        model.scale.set(size, size, size);
-        model.traverse((child) => {
-            if (child.isMesh) {
-                child.castShadow = true;
-                child.receiveShadow = true;
-            }
-        });
+function createNewClock(size, speed, adjust, depth, imagePath, owner = "default", initialTime = 0) {
+    return new Promise((resolve) => {
+        const id = nextClockId++; // Move this outside the loader callback
+        console.log(`Creating clock with ID: ${id}`); // Debug log
 
-        const clockGroup = new THREE.Group();
-        clockGroup.add(model);
+        loader.load('/assets/clock_low_poly/scene.gltf', (gltf) => {
+            const model = gltf.scene;
+            model.scale.set(size, size, size);
+            model.rotation.set(0, 0, 0);
 
-        const newClockRadius = size + 1.5;
-        const bounds = {
-            minX: -10 + newClockRadius,
-            maxX: 10 - newClockRadius,
-            minY: -5 + newClockRadius,
-            maxY: 5 - newClockRadius
-        };
+            const clockGroup = new THREE.Group();
+            clockGroup.userData.id = id; // Assign the ID
+            console.log(`Clock group created with ID: ${clockGroup.userData.id}`); // Debug log
 
-        let positionFound = false;
-        let bestPosition = null;
-        let minOverlap = Infinity;
-        const maxAttempts = 100;
+            model.traverse((child) => {
+                if (child.isMesh) {
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                }
+            });
+            clockGroup.add(model);
 
-        // Check for overlap and find a suitable position
-        for (let attempts = 0; attempts < maxAttempts; attempts++) {
-            const x = bounds.minX + Math.random() * (bounds.maxX - bounds.minX);
-            const y = bounds.minY + Math.random() * (bounds.maxY - bounds.minY);
+            const metadata = new ClockMetadata(id, owner, initialTime, size, speed, adjust, depth, imagePath);
+            clockMetadataMap.set(id, metadata);
+            clockIds.push(id);
 
-            let totalOverlap = 0;
-            let anyOverlap = false;
+            const newClockRadius = size + 1.5;
+            const bounds = {
+                minX: -10 + newClockRadius,
+                maxX: 10 - newClockRadius,
+                minY: -5 + newClockRadius,
+                maxY: 5 - newClockRadius
+            };
 
-            for (const obj of clockObjects) {
-                const objRadius = obj === mainClock ? 3 : obj.scale.x;
-                const dist = Math.sqrt(
-                    Math.pow(obj.position.x - x, 2) +
-                    Math.pow(obj.position.y - y, 2)
-                );
-                const minDist = newClockRadius + objRadius;
+            let positionFound = false;
+            let bestPosition = null;
+            let minOverlap = Infinity;
+            const maxAttempts = 100;
 
-                if (dist < minDist) {
-                    anyOverlap = true;
-                    totalOverlap += minDist - dist;
+            // Check for overlap and find a suitable position
+            for (let attempts = 0; attempts < maxAttempts; attempts++) {
+                const x = bounds.minX + Math.random() * (bounds.maxX - bounds.minX);
+                const y = bounds.minY + Math.random() * (bounds.maxY - bounds.minY);
+
+                let totalOverlap = 0;
+                let anyOverlap = false;
+
+                for (const obj of clockObjects) {
+                    const objRadius = obj === mainClock ? 3 : obj.scale.x;
+                    const dist = Math.sqrt(
+                        Math.pow(obj.position.x - x, 2) +
+                        Math.pow(obj.position.y - y, 2)
+                    );
+                    const minDist = newClockRadius + objRadius;
+
+                    if (dist < minDist) {
+                        anyOverlap = true;
+                        totalOverlap += minDist - dist;
+                    }
+                }
+
+                if (!anyOverlap) {
+                    clockGroup.position.set(x, y, 0);
+                    positionFound = true;
+                    break;
+                }
+
+                if (totalOverlap < minOverlap) {
+                    minOverlap = totalOverlap;
+                    bestPosition = { x, y };
                 }
             }
 
-            if (!anyOverlap) {
-                clockGroup.position.set(x, y, 0);
+            if (!positionFound && bestPosition) {
+                clockGroup.position.set(bestPosition.x, bestPosition.y, 0);
                 positionFound = true;
-                break;
             }
 
-            if (totalOverlap < minOverlap) {
-                minOverlap = totalOverlap;
-                bestPosition = { x, y };
+            if (!positionFound) {
+                const side = Math.floor(Math.random() * 4);
+                switch (side) {
+                    case 0: // top
+                        clockGroup.position.set(
+                            bounds.minX + Math.random() * (bounds.maxX - bounds.minX),
+                            bounds.maxY,
+                            0
+                        );
+                        break;
+                    case 1: // right
+                        clockGroup.position.set(
+                            bounds.maxX,
+                            bounds.minY + Math.random() * (bounds.maxY - bounds.minY),
+                            0
+                        );
+                        break;
+                    case 2: // bottom
+                        clockGroup.position.set(
+                            bounds.minX + Math.random() * (bounds.maxX - bounds.minX),
+                            bounds.minY,
+                            0
+                        );
+                        break;
+                    case 3: // left
+                        clockGroup.position.set(
+                            bounds.minX,
+                            bounds.minY + Math.random() * (bounds.maxY - bounds.minY),
+                            0
+                        );
+                        break;
+                }
             }
-        }
 
-        if (!positionFound && bestPosition) {
-            clockGroup.position.set(bestPosition.x, bestPosition.y, 0);
-            positionFound = true;
-        }
+            addCircularImageTo(clockGroup, imagePath, 0.9, depth, adjust);
+            createTimeDisplay(clockGroup, initialTime, depth);
 
-        if (!positionFound) {
-            const side = Math.floor(Math.random() * 4);
-            switch(side) {
-                case 0: // top
-                    clockGroup.position.set(
-                        bounds.minX + Math.random() * (bounds.maxX - bounds.minX),
-                        bounds.maxY,
-                        0
-                    );
-                    break;
-                case 1: // right
-                    clockGroup.position.set(
-                        bounds.maxX,
-                        bounds.minY + Math.random() * (bounds.maxY - bounds.minY),
-                        0
-                    );
-                    break;
-                case 2: // bottom
-                    clockGroup.position.set(
-                        bounds.minX + Math.random() * (bounds.maxX - bounds.minX),
-                        bounds.minY,
-                        0
-                    );
-                    break;
-                case 3: // left
-                    clockGroup.position.set(
-                        bounds.minX,
-                        bounds.minY + Math.random() * (bounds.maxY - bounds.minY),
-                        0
-                    );
-                    break;
-            }
-        }
+            const mixer = new THREE.AnimationMixer(model);
+            gltf.animations.forEach((clip) => {
+                mixer.clipAction(clip).setDuration(speed).play();
+            });
+            mixers.push(mixer);
 
-        addCircularImageTo(clockGroup, imagePath, 0.9, depth, adjust);
+            // Update metadata with final position
+            metadata.position = clockGroup.position.toArray();
 
-        const mixer = new THREE.AnimationMixer(model);
-        gltf.animations.forEach((clip) => {
-            mixer.clipAction(clip).setDuration(speed).play();
+            // Save the clock to localStorage
+            saveClockToLocalStorage(clockGroup, size, speed, adjust, depth, imagePath, owner, initialTime);
+
+            scene.add(clockGroup);
+            clockObjects.push(clockGroup);
+            resolveCollisions(clockGroup);
+
+            resolve(id); // Return the ID through the Promise
         });
-        mixers.push(mixer);
-
-        // Save the clock to localStorage
-        saveClockToLocalStorage(clockGroup, size, speed, adjust, depth, imagePath);
-
-        scene.add(clockGroup);
-        clockObjects.push(clockGroup);
-        resolveCollisions(clockGroup);
     });
+}// Get all clock IDs
+function getAllClockIds() {
+    return clockIds;
 }
 
+// Get clock metadata by ID
+function getClockMetadata(id) {
+    return clockMetadataMap.get(id);
+}
 
+// Update time for a specific clock
+function updateTime(id, newTime) {
+    const metadata = clockMetadataMap.get(id);
+    if (metadata) {
+        metadata.time = newTime;
 
-// Create initial clocks
-// Replace the initial clock creation code with this:
-// if (clockObjects.length < 4) {  // This check isn't sufficient
-//     const savedClocks = JSON.parse(localStorage.getItem('clocks')) || [];
+        // Update in localStorage
+        let savedClocks = JSON.parse(localStorage.getItem('clocks')) || [];
+        const index = savedClocks.findIndex(c => c.id === id);
+        if (index >= 0) {
+            savedClocks[index].time = newTime;
+            localStorage.setItem('clocks', JSON.stringify(savedClocks));
+        }
+    }
+}
+
+// Get clock by ID
+function getClockById(id) {
+    return clockObjects.find(clock => clock.userData.id === id);
+}
+
+function createTimeDisplay(clockGroup, initialTime = 0, depth = 0) {
+    // Create a canvas element with transparent background
+    const canvas = document.createElement('canvas');
+    canvas.width = 200;
+    canvas.height = 60;
     
-//     // Check if we need to create the default clocks
-//     if (savedClocks.length === 0) {
-//         createNewClock(7, 4, 0, 0.1, '/assets/wwf.jpg');
-//         createNewClock(5.2, 4, 0.1, 0.08, '/assets/github_logo.png');
-//         createNewClock(6, 4, 0.2, 0.09,'/assets/symbiosis.png');
-//     }
-// }
+    // Create a plane with transparent texture
+    const texture = new THREE.CanvasTexture(canvas);
+    const geometry = new THREE.PlaneGeometry(1, 0.3);
+    const material = new THREE.MeshBasicMaterial({
+        map: texture,
+        transparent: true,
+        opacity: 1,
+        depthTest: false,
+        color: 0x000000 // Base color (won't show since we're using texture)
+    });
+    
+    const plane = new THREE.Mesh(geometry, material);
+    plane.position.set(0, 0.5, depth + 0.01); // Slightly in front of clock face
+    
+    // Add to clock group
+    clockGroup.add(plane);
+    
+    // Store references
+    clockGroup.userData.timeDisplay = {
+        canvas: canvas,
+        plane: plane,
+        texture: texture,
+        ctx: canvas.getContext('2d')
+
+    };
+    
+    // Initial render
+    updateTimeDisplay(clockGroup, initialTime);
+    
+    return plane;
+}
+
+function updateTimeDisplay(clockGroup, time) {
+    if (!clockGroup.userData.timeDisplay) return;
+    
+    const { canvas, ctx, texture } = clockGroup.userData.timeDisplay;
+    const formattedTime = formatTime(time);
+    
+    // Clear with transparent background
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Text styling
+    // In updateTimeDisplay:
+    const isMainClock = clockGroup.userData?.id === 0;
+    const fontSize = isMainClock ? 36 : 24;
+    ctx.font = `bold ${fontSize}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    
+    // Shadow effect (dark outline)
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.7)';
+    ctx.lineWidth = 4;
+    ctx.strokeText(formattedTime, canvas.width/2, canvas.height/2);
+    
+    // Main text (white)
+    ctx.fillStyle = 'white';
+    ctx.fillText(formattedTime, canvas.width/2, canvas.height/2);
+    
+    texture.needsUpdate = true;
+}
 
 // Mouse events
 let isMouseDown = false;
@@ -259,7 +402,7 @@ document.addEventListener('mousedown', (e) => {
 
     isMouseDown = true;
     clickStartTime = Date.now();
-    
+
     mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
     mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
     raycaster.setFromCamera(mouse, camera);
@@ -271,22 +414,22 @@ document.addEventListener('mousedown', (e) => {
             camera.getWorldDirection(new THREE.Vector3()).negate(),
             selectedClock.position
         );
-        
+
         clickTimeout = setTimeout(() => {
             isDragging = true;
             controls.enabled = false;
         }, 150);
     }
-    
+
     restoringCamera = false;
 });
 
 document.addEventListener('mouseup', (e) => {
     clearTimeout(clickTimeout);
-    
+
     const clickDuration = Date.now() - clickStartTime;
     const isQuickClick = clickDuration < 200 && !isDragging;
-    
+
     isMouseDown = false;
 
     if (isDragging) {
@@ -363,21 +506,21 @@ document.addEventListener('mousemove', (e) => {
 
     for (const other of clockObjects) {
         if (other === selectedClock) continue;
-    
+
         const dx = other.position.x - selectedClock.position.x;
         const dy = other.position.y - selectedClock.position.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
-    
+
         const selectedRadius = selectedClock === mainClock ? 3 : selectedClock.scale.x;
         const otherRadius = other === mainClock ? 3 : other.scale.x;
-    
+
         const minDistance = selectedRadius + otherRadius + 0.5;
-    
+
         if (distance < minDistance) {
             const angle = Math.atan2(dy, dx);
             const targetX = selectedClock.position.x + Math.cos(angle) * minDistance;
             const targetY = selectedClock.position.y + Math.sin(angle) * minDistance;
-    
+
             other.position.x += (targetX - other.position.x) * 0.3;
             other.position.y += (targetY - other.position.y) * 0.3;
         }
@@ -389,6 +532,14 @@ const clock = new THREE.Clock();
 function animate() {
     requestAnimationFrame(animate);
     const delta = clock.getDelta();
+
+    // Update all time displays
+   clockObjects.forEach(clock => {
+        if (clock.userData.timeDisplay) {
+            clock.userData.timeDisplay.plane.lookAt(camera.position);
+        }
+    });
+
 
     if (big_mixer) big_mixer.update(delta * 0.05);
     mixers.forEach((m) => m.update(delta * 0.2));
@@ -405,6 +556,7 @@ function animate() {
 
     controls.update();
     renderer.render(scene, camera);
+    cssRenderer.render(scene, camera);
 }
 
 animate();
@@ -414,11 +566,59 @@ window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
+    cssRenderer.setSize(window.innerWidth, window.innerHeight);
 });
 
 // Card functions
 function showCard() {
-    document.getElementById("card-overlay").style.display = "block";
+    // Show the card overlay
+    const cardOverlay = document.getElementById("card-overlay");
+    cardOverlay.style.display = "block";
+
+    // Only proceed if we have a selected clock
+    if (!selectedClock) return;
+
+    // Get the clock's metadata
+    const clockId = selectedClock.userData?.id;
+    const metadata = getClockMetadata(clockId);
+    
+    // If no metadata found, return
+    if (!metadata) return;
+
+    // Update the card elements
+    const card = document.querySelector('.profile-card');
+    
+    // Update owner name
+    const nameElement = card.querySelector('.name');
+    nameElement.textContent = metadata.owner || "Unknown Owner";
+    
+    // Update time in HH:MM:SS format
+    const jobElement = card.querySelector('.job');
+    jobElement.textContent = formatTime(metadata.time);
+    
+    // Update profile image if available
+    const imgElement = card.querySelector('.profile-img');
+    if (metadata.imagePath) {
+        imgElement.src = metadata.imagePath;
+    }
+}
+
+// Helper function to format time as HH:MM:SS
+function formatTime(seconds) {
+    if (seconds === undefined || seconds === null) return "00:00:00";
+    
+    // Ensure seconds is a number
+    seconds = Number(seconds);
+    
+    // Calculate hours, minutes, and remaining seconds
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    
+    // Format each component to 2 digits
+    const pad = (num) => num.toString().padStart(2, '0');
+    
+    return `${pad(hours)}:${pad(minutes)}:${pad(secs)}`;
 }
 
 function hideCard() {
@@ -428,25 +628,27 @@ function hideCard() {
 window.showCard = showCard;
 window.hideCard = hideCard;
 
-// Create clock button
-// const createClockButton = document.createElement('button');
-// createClockButton.innerText = 'Create Clock';
-// createClockButton.style.position = 'absolute';
-// createClockButton.style.top = '10px';
-// createClockButton.style.right = '10px';
-// createClockButton.style.zIndex = 1000;
-// createClockButton.style.backgroundColor = 'white';
-// createClockButton.style.border = 'none';
-// createClockButton.style.padding = '10px';
-// createClockButton.style.cursor = 'pointer';
-// createClockButton.addEventListener('click', () => {
-//     createNewClock(7, 4, 0, '/assets/wwf.jpg');
-// });
-// document.body.appendChild(createClockButton);
+function cleanupInvalidClocks() {
+    const validClocks = [];
 
-// document.getElementById('create-clock-button').addEventListener('click', () => {
-//     createNewClock(7, 4, 0, '/assets/wwf.jpg');
-// });
+    clockObjects.forEach(clock => {
+        const id = clock.userData?.id;
+        if (id === undefined) {
+            console.warn("Removing clock with undefined ID:", clock);
+            scene.remove(clock);
+        } else if (!clockMetadataMap.has(id)) {
+            console.warn("Removing clock with no metadata (ID:", id, "):", clock);
+            scene.remove(clock);
+        } else {
+            validClocks.push(clock);
+        }
+    });
+
+    clockObjects = validClocks;
+}
+
+// Call this after loading or when you detect issues
+cleanupInvalidClocks();
 
 // Hide the scene on partner.html
 if (window.location.pathname.includes('partner.html')) {
@@ -458,19 +660,21 @@ window.addEventListener('load', () => {
     if (window.location.pathname.includes('partner.html')) {
         // Hide the Three.js scene
         renderer.domElement.style.display = 'none';
-        
+
         // Make createNewClock available globally
         window.createNewClock = createNewClock;
-        
+
         // Add click handler for create button
         document.getElementById('create-clock-button')?.addEventListener('click', () => {
             console.log('Creating new clock...');
-            createNewClock(7, 4, 0, 0.1, '/assets/wwf.jpg');
+            const owner = prompt("Enter owner name:", "default");
+            const initialTime = Date.now();
+            createNewClock(7, 4, 0, 0.1, '/assets/wwf.jpg', owner, initialTime);
         });
     }
-    
+
     // Clear existing clocks (except main clock)
-    console.log(' number of clocks:', clockObjects.length);
+    console.log('Number of clocks:', clockObjects.length);
     clockObjects.forEach(clock => {
         if (clock !== mainClock) {
             scene.remove(clock);
@@ -478,58 +682,91 @@ window.addEventListener('load', () => {
     });
     clockObjects = mainClock ? [mainClock] : [];
     mixers.length = 0;
+    clockIds = [];
+    clockMetadataMap.clear();
+    nextClockId = 1;
 
     const savedClocks = JSON.parse(localStorage.getItem('clocks')) || [];
-    
-    if (savedClocks.length === 0 && !window.location.pathname.includes('partner.html')) {
+
+    if (savedClocks.length <= 4 && !window.location.pathname.includes('partner.html')) {
         // Create default clocks only if no saved clocks exist
         const defaultClocks = [
-            { size: 7, speed: 4, adjust: 0, depth: 0.1, image: '/assets/wwf.jpg' },
-            { size: 5.2, speed: 4, adjust: 0.1, depth: 0.08, image: '/assets/github_logo.png' },
-            { size: 6, speed: 4, adjust: 0.2, depth: 0.09, image: '/assets/symbiosis.png' }
+            { size: 7, speed: 4, adjust: 0, depth: 0.1, image: '/assets/wwf.jpg', owner: 'wwf', time: 1800 },
+            { size: 5.2, speed: 4, adjust: 0.1, depth: 0.08, image: '/assets/github_logo.png', owner: 'github', time: 9600 },
+            { size: 6, speed: 4, adjust: 0.2, depth: 0.09, image: '/assets/symbiosis.png', owner: 'symbiosis', time: 30 }
         ];
 
-        defaultClocks.forEach(clock => {
-            createNewClock(
-                clock.size, 
-                clock.speed, 
-                clock.adjust, 
-                clock.depth, 
-                clock.image
-            );
+        // Use Promise.all to wait for all clocks to be created
+        Promise.all(
+            defaultClocks.map(clock => 
+                createNewClock(
+                    clock.size,
+                    clock.speed,
+                    clock.adjust,
+                    clock.depth,
+                    clock.image,
+                    clock.owner,
+                    clock.time
+                )
+            )
+        ).then(() => {
+            console.log("All default clocks created");
+            cleanupInvalidClocks();
+        }).catch(error => {
+            console.error("Error creating default clocks:", error);
         });
     } else {
         // Load saved clocks with all correct properties
         savedClocks.forEach(clockData => {
+            // Skip if no ID (shouldn't happen, but just in case)
+            if (clockData.id === undefined) {
+                console.warn("Found clock with undefined ID in localStorage:", clockData);
+                return;
+            }
+
             loader.load('/assets/clock_low_poly/scene.gltf', (gltf) => {
                 const model = gltf.scene;
-                
-                // Fix rotation (add these lines)
-                model.rotation.set(0, 0, 0); // Rotate 180 degrees around Y axis
-                
-                model.scale.set(clockData.size, clockData.size, clockData.size);
-                // model.position.set(0, 0, 0); // Reset position relative to group
-                
-                model.traverse((child) => {
-                    if (child.isMesh) {
-                        child.castShadow = true;
-                        child.receiveShadow = true;
-                    }
-                });
+                model.rotation.set(0, 0, 0);
+                model.scale.set(...clockData.scale);
 
                 const clockGroup = new THREE.Group();
+                clockGroup.userData.id = clockData.id; // Make sure to set the ID
+                console.log(`Loading clock with ID: ${clockData.id}`); // Debug log
+
                 clockGroup.add(model);
                 clockGroup.position.set(...clockData.position);
 
+                // Create and store metadata
+                const metadata = new ClockMetadata(
+                    clockData.id,
+                    clockData.owner || "default",
+                    clockData.time || Date.now(),
+                    clockData.size,
+                    clockData.speed,
+                    clockData.adjust,
+                    clockData.depth,
+                    clockData.imagePath
+                );
+                metadata.position = clockData.position;
+                clockMetadataMap.set(clockData.id, metadata);
+                clockIds.push(clockData.id);
+
+                // Update nextClockId to be higher than any existing ID
+                if (clockData.id >= nextClockId) {
+                    nextClockId = clockData.id + 1;
+                }
+
                 // Add image with correct parameters from storage
                 addCircularImageTo(
-                    clockGroup, 
-                    clockData.imagePath, 
-                    0.9, 
-                    clockData.depth, 
+                    clockGroup,
+                    clockData.imagePath,
+                    0.9,
+                    clockData.depth,
                     clockData.adjust
                 );
-                
+
+                createTimeDisplay(clockGroup, clockData.time | 0, clockData.depth);
+
                 const mixer = new THREE.AnimationMixer(model);
                 gltf.animations.forEach((clip) => {
                     const action = mixer.clipAction(clip);
@@ -543,15 +780,20 @@ window.addEventListener('load', () => {
             });
         });
     }
+
+    // Make utility functions available globally
+    window.getAllClockIds = getAllClockIds;
+    window.getClockMetadata = getClockMetadata;
+    window.updateTime = updateTime;
+    window.getClockById = getClockById;
 });
 
 // Add this near the top of script.js
-window.addEventListener('storage', function(event) {
+window.addEventListener('storage', function (event) {
     if (event.key === 'clocks') {
-        // Instead of reloading, properly update the scene
         const savedClocks = JSON.parse(localStorage.getItem('clocks')) || [];
-        
-        // Remove all clocks except main clock
+
+        // Clear existing clocks except main clock
         clockObjects.forEach(clock => {
             if (clock !== mainClock) {
                 scene.remove(clock);
@@ -559,6 +801,12 @@ window.addEventListener('storage', function(event) {
         });
         clockObjects = mainClock ? [mainClock] : [];
         mixers.length = 0;
+        clockIds = mainClock ? [0] : [];
+        clockMetadataMap.clear();
+        if (mainClock) {
+            const metadata = new ClockMetadata(0, "system", Date.now(), 18, 1, 0, 0.015, '/assets/bahamut.png');
+            clockMetadataMap.set(0, metadata);
+        }
 
         // Load the updated clocks
         savedClocks.forEach(clockData => {
@@ -566,16 +814,36 @@ window.addEventListener('storage', function(event) {
                 const model = gltf.scene;
                 model.rotation.set(0, 0, 0);
                 model.scale.set(...clockData.scale);
-                
+
                 const clockGroup = new THREE.Group();
+                clockGroup.userData.id = clockData.id; // Make sure ID is set
                 clockGroup.add(model);
                 clockGroup.position.set(...clockData.position);
 
+                // Create and store metadata
+                const metadata = new ClockMetadata(
+                    clockData.id,
+                    clockData.owner || "default",
+                    clockData.time || Date.now(),
+                    clockData.size,
+                    clockData.speed,
+                    clockData.adjust,
+                    clockData.depth,
+                    clockData.imagePath
+                );
+                clockMetadataMap.set(clockData.id, metadata);
+                clockIds.push(clockData.id);
+
+                // Update nextClockId
+                if (clockData.id >= nextClockId) {
+                    nextClockId = clockData.id + 1;
+                }
+
                 addCircularImageTo(
-                    clockGroup, 
-                    clockData.imagePath, 
-                    0.9, 
-                    clockData.depth, 
+                    clockGroup,
+                    clockData.imagePath,
+                    0.9,
+                    clockData.depth,
                     clockData.adjust
                 );
 
@@ -593,7 +861,7 @@ window.addEventListener('storage', function(event) {
     }
 });
 
-document.getElementById('clearClocksButton').addEventListener('click', function() {
+document.getElementById('clearClocksButton').addEventListener('click', function () {
     // Clear the clocks from localStorage
     localStorage.removeItem('clocks');
     // Optionally, remove all the clocks from the scene
