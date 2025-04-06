@@ -691,7 +691,6 @@ function showCard() {
 
     // Update the card elements
     const card = document.querySelector('.profile-card');
-
     // Update owner name
     const nameElement = card.querySelector('.name');
     nameElement.textContent = metadata.owner || "Unknown Owner";
@@ -936,6 +935,8 @@ window.addEventListener('storage', function (event) {
 
                 const clockGroup = new THREE.Group();
                 clockGroup.userData.id = clockData.id; // Make sure ID is set
+                console.log(`Loading clock with ID: ${clockData.id}`); // Debug log
+
                 clockGroup.add(model);
                 clockGroup.position.set(...clockData.position);
 
@@ -995,3 +996,21 @@ document.getElementById('clearClocksButton').addEventListener('click', function 
     clockObjects = []; // Clear the array that holds clock references
     alert("Clocks have been cleared from localStorage.");
 });
+
+// Helper function to format time as HH:MM:SS
+function formatTime(seconds) {
+    if (seconds === undefined || seconds === null) return "00:00:00";
+    
+    // Ensure seconds is a number
+    seconds = Number(seconds);
+    
+    // Calculate hours, minutes, and remaining seconds
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    
+    // Format each component to 2 digits
+    const pad = (num) => num.toString().padStart(2, '0');
+    
+    return `${pad(hours)}:${pad(minutes)}:${pad(secs)}`;
+}
