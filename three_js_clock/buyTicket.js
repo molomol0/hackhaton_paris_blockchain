@@ -6,19 +6,37 @@ document.addEventListener('DOMContentLoaded', () => {
     const notification = document.getElementById('notification');
     
     // Adresse de votre contrat déployé
-    const CONTRACT_ADDRESS = "0xa7F167DC8AE458d9CC7e9cD8dc96F55E4c644DaE";
-    
+    const CONTRACT_ADDRESS = "0x2016889d4ad5c2f9535B0B5e4dc1c7D3f265E0cc";
+
     // ABI simplifiée du contrat
     const CONTRACT_ABI = [
-        "function clocks(uint256) view returns (uint256 id, string name, uint256 prize, uint256 deadline, address lastBidder, uint256 extensionTime, bool isActive)",
-        "function userTickets(address) view returns (uint256)",
-        "function nextClockId() view returns (uint256)",
-        "function buyTickets(uint256 _amount) payable",
-        "function useTicket(uint256 clockId)",
-        "function calculatePrice(uint256 _ticketCount) view returns (uint256)",
-        "function createClock(string memory _name, uint256 _initialPrize, uint256 _deadline, uint256 _extensionTime) external payable",
-        "function finalizeClock(uint256 clockId) external",
-        "function getClockInfo(uint256 clockId) view returns (string name, uint256 prize, uint256 deadline, address lastBidder, bool isActive)"
+    // Variables publiques
+    "function owner() view returns (address)",
+    "function ticketPrice() view returns (uint256)",
+    "function nextClockId() view returns (uint256)",
+    
+    // Mappings publics
+    "function userTickets(address) view returns (uint256)",
+    "function clocks(uint256) view returns (uint256 id, uint256 prize, address lastBidder, bool isActive, bool isFinalized)",
+    
+    // Fonctions d'achat et de gestion des tickets
+    "function buyTickets(uint256 _amount) payable",
+    "function getTicketPrice(uint256 _amount) view returns (uint256)",
+    "function getTicketBalance(address _user) view returns (uint256)",
+    
+    // Fonctions de gestion des horloges
+    "function createClock(uint256 _prize) payable",
+    "function recordParticipation(uint256 clockId, address participant)",
+    "function finalizeClock(uint256 clockId)",
+    
+    // Fonction admin
+    "function withdraw(uint256 _amount)",
+    
+    // Événements
+    "event TicketsPurchased(address indexed buyer, uint256 amount)",
+    "event ClockCreated(uint256 indexed clockId, uint256 prize)",
+    "event ParticipationRecorded(uint256 indexed clockId, address indexed participant)",
+    "event ClockFinalized(uint256 indexed clockId, address winner, uint256 prize)"
     ];
     
     // Variable pour stocker le contrat
@@ -40,13 +58,38 @@ document.addEventListener('DOMContentLoaded', () => {
     async function updateTicketCount() {
         if (contract && userAccount) {
             try {
+                console.log("Contrat :", contract);
+                console.log("Adresse utilisateur :", userAccount);
+                
+                // Essayer d'appeler nextClockId en premier pour voir si le contrat répond
+                try {
+                    const nextId = await contract.nextClockId();
+                    console.log("ID horloge suivante :", nextId.toString());
+                } catch (clockError) {
+                    console.error("Erreur avec nextClockId :", clockError);
+                }
+                
+                // Puis essayer getTicketBalance (nouvelle méthode)
+                try {
+                    const ticketCount = await contract.getTicketBalance(userAccount);
+                    console.log("Tickets lus (getTicketBalance) :", ticketCount.toString());
+                    userTickets.textContent = ticketCount.toString();
+                    return;
+                } catch (ticketError) {
+                    console.error("Erreur avec getTicketBalance :", ticketError);
+                }
+                
+                // Si getTicketBalance échoue, essayer userTickets (méthode alternative)
                 const ticketCount = await contract.userTickets(userAccount);
+                console.log("Tickets lus (userTickets) :", ticketCount.toString());
                 userTickets.textContent = ticketCount.toString();
             } catch (error) {
-                console.error("Erreur lors de la lecture des tickets:", error);
+                console.error("Erreur détaillée :", error);
+                userTickets.textContent = "0"; // Valeur par défaut
             }
         }
     }
+    
 
     // Fonction pour connecter au wallet
     async function connectWallet() {
@@ -82,7 +125,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     console.log("Contrat initialisé avec succès");
                     
                     // Mettre à jour le nombre de tickets
-                    await updateTicketCount();
+                    await updateTicketCount(); //getTicketBalance
                     
                 } catch (error) {
                     console.error("Erreur d'initialisation du contrat:", error);
@@ -110,12 +153,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         try {
-            // Calculer le prix
-            const price = await contract.getTicketPrice(amount);
-            console.log("Prix calculé:", ethers.utils.formatEther(price), "ETH");
+            // Calculer le prix avec getTicketPrice au lieu de calculatePrice
+            const price = await contract.getTicketPrice(amount);    
+            console.log("Prix calculé:", ethers.utils.formatEther(price), "FTN");
             
             // Confirmer l'achat
-            const confirmPurchase = confirm(`Prix total: ${ethers.utils.formatEther(price)} ETH pour ${amount} tickets. Confirmer l'achat ?`);
+            const confirmPurchase = confirm(`Prix total: ${ethers.utils.formatEther(price)} FTN pour ${amount} tickets. Confirmer l'achat ?`);
             
             if (confirmPurchase) {
                 // Exécuter la transaction
