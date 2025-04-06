@@ -358,8 +358,8 @@ function createTimeDisplay(clockGroup, initialTime = 0, depth = 0) {
     }
 
     // Create plane
-    const planeWidth = isMainClock ? 1.5 : 2.0;
-    const planeHeight = isMainClock ? 0.4 : 0.5;
+    const planeWidth = isMainClock ? 0.2 : 2.0;
+    const planeHeight = isMainClock ? 0.08 : 0.5;
     const geometry = new THREE.PlaneGeometry(planeWidth, planeHeight);
 
     const material = new THREE.MeshBasicMaterial({
@@ -410,7 +410,7 @@ function updateTimeDisplay(clockGroup, time) {
     ctx.clearRect(0, 0, width, height);
 
     // Set text properties - change color if critical
-    const fontSize = isMainClock ? 400 : 48;
+    const fontSize = isMainClock ? 2000 : 48;
     ctx.font = `bold ${fontSize}px 'Arial', sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
