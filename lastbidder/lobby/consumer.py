@@ -78,7 +78,7 @@ class LobbyConsumer(AsyncWebsocketConsumer):
 		userId = data.get('userId', self.userId) if isinstance(data, dict) else self.userId
 		transactionHash = data.get('transactionHash') if isinstance(data, dict) else None
 		
-		print(f'User {userId} placed a bid' + (f' with tx: {transactionHash}' if transactionHash else ''))
+		print(f'User {userId} attempted to place a bid' + (f' with tx: {transactionHash}' if transactionHash else ''))
 		
 		# Basic validation
 		if not userId:
@@ -92,14 +92,28 @@ class LobbyConsumer(AsyncWebsocketConsumer):
 		if transactionHash:
 			print(f"Transaction hash: {transactionHash}")
 		
-		# Add time to the clock
+		 # Check current time
 		old_time = my_clock.remaining_time
-		await my_clock.add_time(userId)
-		new_time = my_clock.remaining_time
 		
+		# Try to add time - this returns True if successful, False if clock has ended
+		bid_accepted = await my_clock.add_time(userId)
+		
+		if not bid_accepted:
+			# Bid was rejected because the clock has already ended
+			await self.send(text_data=json.dumps({
+				"event": "bid_error",
+				"data": {
+					"message": "Cannot bid: Clock has already ended",
+					"transaction_hash": transactionHash
+				}
+			}))
+			return
+		
+		# Bid was successful, get the new time
+		new_time = my_clock.remaining_time
 		print(f"Time updated: {old_time} → {new_time}")
 		
-		# Reset the clock if it's not active
+		# Ensure the clock is active
 		if not my_clock.is_active:
 			my_clock.is_active = True
 			# Start a new run_clock task

@@ -13,22 +13,20 @@ class clock:
 		self.lock = asyncio.Lock()  # Initialize a lock
 
 	async def add_time(self, bidder):
-		"""Add bid_time to the remaining time."""
+		"""Add bid_time to the remaining time if clock hasn't ended."""
 		async with self.lock:  # Acquire the lock before modifying remaining_time
-			 # Store original time for logging
+			# Store original time for logging
 			original_time = self.remaining_time
 			
-			# If timer already stopped, reset it to bid_time
+			# Check if timer has already ended - don't allow bidding on ended clocks
 			if self.remaining_time <= 0:
-				self.remaining_time = self.bid_time
-				self.is_active = True
-				print(f"Clock restarted by {bidder}, new time: {self.remaining_time}s")
-			else:
-				# Otherwise add bid_time to the current time
-				self.remaining_time += self.bid_time
-				print(f"Time increased by {bidder}: {original_time}s → {self.remaining_time}s")
+				print(f"Bid rejected: Clock has already ended when {bidder} tried to bid")
+				return False  # Return False to indicate bid was rejected
 			
+			# Timer is still active, add more time
+			self.remaining_time += self.bid_time
 			self.last_bidder = bidder
+			print(f"Time increased by {bidder}: {original_time}s → {self.remaining_time}s")
 			
 			# Send an immediate update with the new time
 			await get_channel_layer().group_send(
@@ -42,6 +40,7 @@ class clock:
 					}
 				}
 			)
+			return True  # Return True to indicate bid was accepted
 
 	async def run_clock(self):
 		"""Run the clock indefinitely, checking if time has expired."""
