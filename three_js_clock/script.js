@@ -588,6 +588,32 @@ function showCard() {
     // Update the card elements
     const card = document.querySelector('.profile-card');
     
+    // Get the use ticket button
+    const useTicketButton = document.getElementById('use-ticket-button');
+    
+    // Si c'est l'horloge principale (ID 0), configurer le gestionnaire du bouton Use Ticket
+    if (clockId === 0) {
+        useTicketButton.style.display = 'block'; // Afficher le bouton
+        
+        // Supprimer les gestionnaires d'événements existants
+        const newUseTicketButton = useTicketButton.cloneNode(true);
+        useTicketButton.parentNode.replaceChild(newUseTicketButton, useTicketButton);
+        
+        // Ajouter un nouveau gestionnaire d'événements
+        newUseTicketButton.addEventListener('click', function() {
+            // Participer à l'horloge 1
+            if (typeof window.recordParticipation === 'function') {
+                window.recordParticipation(1);
+            } else {
+                console.error("La fonction recordParticipation n'est pas disponible");
+                alert("Erreur: Connexion au portefeuille non établie");
+            }
+        });
+    } else {
+        // Pour les autres horloges, on cache le bouton Use Ticket
+        useTicketButton.style.display = 'none';
+    }
+    
     // Update owner name
     const nameElement = card.querySelector('.name');
     nameElement.textContent = metadata.owner || "Unknown Owner";
@@ -601,24 +627,6 @@ function showCard() {
     if (metadata.imagePath) {
         imgElement.src = metadata.imagePath;
     }
-}
-
-// Helper function to format time as HH:MM:SS
-function formatTime(seconds) {
-    if (seconds === undefined || seconds === null) return "00:00:00";
-    
-    // Ensure seconds is a number
-    seconds = Number(seconds);
-    
-    // Calculate hours, minutes, and remaining seconds
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = Math.floor(seconds % 60);
-    
-    // Format each component to 2 digits
-    const pad = (num) => num.toString().padStart(2, '0');
-    
-    return `${pad(hours)}:${pad(minutes)}:${pad(secs)}`;
 }
 
 function hideCard() {
@@ -817,6 +825,8 @@ window.addEventListener('storage', function (event) {
 
                 const clockGroup = new THREE.Group();
                 clockGroup.userData.id = clockData.id; // Make sure ID is set
+                console.log(`Loading clock with ID: ${clockData.id}`); // Debug log
+
                 clockGroup.add(model);
                 clockGroup.position.set(...clockData.position);
 
@@ -869,3 +879,21 @@ document.getElementById('clearClocksButton').addEventListener('click', function 
     clockObjects = []; // Clear the array that holds clock references
     alert("Clocks have been cleared from localStorage.");
 });
+
+// Helper function to format time as HH:MM:SS
+function formatTime(seconds) {
+    if (seconds === undefined || seconds === null) return "00:00:00";
+    
+    // Ensure seconds is a number
+    seconds = Number(seconds);
+    
+    // Calculate hours, minutes, and remaining seconds
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    
+    // Format each component to 2 digits
+    const pad = (num) => num.toString().padStart(2, '0');
+    
+    return `${pad(hours)}:${pad(minutes)}:${pad(secs)}`;
+}

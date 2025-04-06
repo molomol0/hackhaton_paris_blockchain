@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 contract LastBidderWin {
     address public owner;
     uint256 public ticketPrice;
+    uint256 public clocksNum;
     
     struct Clock {
         uint256 id;
@@ -32,10 +33,34 @@ contract LastBidderWin {
         _;
     }
     
-    constructor() {
-        owner = msg.sender;
-        ticketPrice = 250000000000000000; // 0.25 FTN
-    }
+    constructor() payable {
+    // Initialisation des variables d'état standard
+    owner = msg.sender;
+    ticketPrice = 250000000000000000; // 0.25 FTN
+    nextClockId = 1;
+    
+    // Vérification que suffisamment de FTN ont été envoyés
+    uint256 mainClockPrize = 1; // 1 FTN pour l'horloge principale
+    require(msg.value >= mainClockPrize, "Must provide prize amount for main clock (20 FTN)");
+    
+    // Création de l'horloge principale
+    uint256 clockId = nextClockId;
+    
+    clocks[clockId] = Clock({
+        id: clockId,
+        prize: mainClockPrize,
+        lastBidder: address(0),
+        isActive: true,
+        isFinalized: false
+    });
+    
+    // Incrémentation de l'ID pour les futures horloges
+    clocksNum++;
+    nextClockId++;
+    
+    // Émission de l'événement de création
+    emit ClockCreated(clockId, mainClockPrize);
+}
     
     function buyTickets(uint256 _amount) external payable {
         require(_amount > 0, "Must buy at least one ticket");
@@ -66,6 +91,7 @@ contract LastBidderWin {
         });
         
         nextClockId++;
+        clocksNum++;
         
         emit ClockCreated(clockId, _prize);
     }
@@ -96,6 +122,7 @@ contract LastBidderWin {
 
         clock.isActive = false;
         clock.isFinalized = true;
+        clocksNum--;
 
         uint256 prize = clock.prize;
         address payable winner = payable(clock.lastBidder);

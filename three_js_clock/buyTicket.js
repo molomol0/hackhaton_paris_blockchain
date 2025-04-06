@@ -6,7 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const notification = document.getElementById('notification');
     
     // Adresse de votre contrat déployé
-    const CONTRACT_ADDRESS = "0x2016889d4ad5c2f9535B0B5e4dc1c7D3f265E0cc";
+    const CONTRACT_ADDRESS = "0xeBa9c2c94a1Fc2e2A486D91ee1E6cC79ce7370e0";
 
     // ABI simplifiée du contrat
     const CONTRACT_ABI = [
@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
     "function owner() view returns (address)",
     "function ticketPrice() view returns (uint256)",
     "function nextClockId() view returns (uint256)",
+    "function clocksNum() view returns (uint256)",
     
     // Mappings publics
     "function userTickets(address) view returns (uint256)",
