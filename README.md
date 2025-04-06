@@ -11,4 +11,11 @@ And that's it! 🎉 The project will start automatically.
 
 🎥 Demo Video
 Here’s a short video showing how to use the project:
-[![Watch the video](https://img.youtube.com/vi/4n0YMQI5g6U/0.jpg)](https://youtu.be/4n0YMQI5g6U)
+<h2 align="center">🎥 Demo Video</h2>
+
+<p align="center">
+  <a href="https://youtu.be/4n0YMQI5g6U">
+    <img src="https://img.youtube.com/vi/4n0YMQI5g6U/0.jpg" alt="Watch the video" />
+  </a>
+</p>
+
