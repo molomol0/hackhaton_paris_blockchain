@@ -97,7 +97,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     const signer = provider.getSigner();
                     
                     // Initialiser le contrat
-                    const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+                    contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+                    
+                    // Exposer le contrat globalement
+                    window.contract = contract;
                     
                     console.log("Contrat initialisé avec succès");
                     console.log("Adresse connectée:", account);

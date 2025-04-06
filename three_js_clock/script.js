@@ -704,6 +704,28 @@ function showCard() {
         const newUseTicketButton = useTicketButton.cloneNode(true);
         useTicketButton.parentNode.replaceChild(newUseTicketButton, useTicketButton);
 
+        // Mettre à jour le texte du bouton pour afficher le prix
+        async function updateButtonText() {
+            try {
+                if (window.contract) {
+                    // Récupérer le prix du ticket depuis le smart contract
+                    const ticketPrice = await window.contract.ticketPrice();
+                    const formattedPrice = window.ethers ? window.ethers.utils.formatEther(ticketPrice) : ticketPrice.toString();
+                    // Mettre à jour le texte du bouton avec le prix
+                    newUseTicketButton.textContent = `Utiliser un ticket (${formattedPrice} FTN)`;
+                } else {
+                    console.warn('Contrat non disponible, utilisation du texte par défaut');
+                    newUseTicketButton.textContent = 'Utiliser un ticket';
+                }
+            } catch (error) {
+                console.error('Erreur lors de la récupération du prix du ticket:', error);
+                newUseTicketButton.textContent = 'Utiliser un ticket';
+            }
+        }
+        
+        // Appeler la fonction pour mettre à jour le texte
+        updateButtonText();
+
         // Ajouter un nouveau gestionnaire d'événements
         newUseTicketButton.addEventListener('click', function () {
             // Participer à l'horloge 1
@@ -732,24 +754,45 @@ function showCard() {
     if (metadata.imagePath) {
         imgElement.src = metadata.imagePath;
     }
-}
 
-// Helper function to format time as HH:MM:SS
-function formatTime(seconds) {
-    if (seconds === undefined || seconds === null) return "00:00:00";
+    // Cru00e9er ou ru00e9cupu00e9rer l'u00e9lu00e9ment pour afficher le nombre de tickets
+    let ticketCountElement = document.getElementById('ticket-count');
+    if (!ticketCountElement) {
+        ticketCountElement = document.createElement('div');
+        ticketCountElement.id = 'ticket-count';
+        ticketCountElement.className = 'ticket-count';
+        ticketCountElement.style.margin = '10px 0';
+        ticketCountElement.style.fontWeight = 'bold';
+        ticketCountElement.style.textAlign = 'center';
+        card.appendChild(ticketCountElement);
+    }
 
-    // Ensure seconds is a number
-    seconds = Number(seconds);
-
-    // Calculate hours, minutes, and remaining seconds
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = Math.floor(seconds % 60);
-
-    // Format each component to 2 digits
-    const pad = (num) => num.toString().padStart(2, '0');
-
-    return `${pad(hours)}:${pad(minutes)}:${pad(secs)}`;
+    // Mettre u00e0 jour le nombre de tickets
+    async function updateTicketCount() {
+        try {
+            if (window.contract) {
+                // Ru00e9cupu00e9rer les infos de l'horloge 1 depuis le smart contract
+                const clockInfo = await window.contract.clocks(1);
+                
+                // Convertir la valeur en divisant par 10^18 (wei -> ether)
+                const ticketCount = window.ethers 
+                    ? parseFloat(window.ethers.utils.formatEther(clockInfo.prize)).toFixed(1)
+                    : (Number(clockInfo.prize.toString()) / 1e18).toFixed(1);
+                
+                // Afficher le nombre de tickets
+                ticketCountElement.textContent = `Cash prize: ${ticketCount} FTN`;
+            } else {
+                console.warn('Contrat non disponible, impossible d\'afficher le nombre de tickets');
+                ticketCountElement.textContent = 'Cash prize: Non disponible';
+            }
+        } catch (error) {
+            console.error('Erreur lors de la récupération du nombre de tickets:', error);
+            ticketCountElement.textContent = 'Cash prize: Erreur';
+        }
+    }
+    
+    // Appeler la fonction pour mettre u00e0 jour le nombre de tickets
+    updateTicketCount();
 }
 
 function hideCard() {
@@ -1024,3 +1067,20 @@ document.getElementById('clearClocksButton').addEventListener('click', function 
     clockObjects = []; // Clear the array that holds clock references
     alert("Clocks have been cleared from localStorage.");
 });
+
+function formatTime(seconds) {
+    if (seconds === undefined || seconds === null) return "00:00:00";
+
+    // Ensure seconds is a number
+    seconds = Number(seconds);
+
+    // Calculate hours, minutes, and remaining seconds
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+
+    // Format each component to 2 digits
+    const pad = (num) => num.toString().padStart(2, '0');
+
+    return `${pad(hours)}:${pad(minutes)}:${pad(secs)}`;
+}
