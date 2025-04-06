@@ -2,7 +2,7 @@ Switch to the websocketFronnnt branch
 (git checkout websocketFronnnt)
 
 Make the run script executable:
-bashCopierchmod +x run.sh
+chmod +x run.sh
 
 Execute the run script:
 ./run.sh
