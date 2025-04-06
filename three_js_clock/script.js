@@ -877,12 +877,16 @@ window.addEventListener('load', () => {
 
     const savedClocks = JSON.parse(localStorage.getItem('clocks')) || [];
 
-    if (savedClocks.length <= 3 && !window.location.pathname.includes('partner.html')) {
+    if (savedClocks.length <= 7 && !window.location.pathname.includes('partner.html')) {
         // Create default clocks only if no saved clocks exist
         const defaultClocks = [
             { size: 7, speed: 4, adjust: 0, depth: 0.1, image: '/assets/wwf.jpg', owner: 'wwf', time: 1800 },
             { size: 5.2, speed: 4, adjust: 0.1, depth: 0.08, image: '/assets/github_logo.png', owner: 'github', time: 9600 },
-            { size: 6, speed: 4, adjust: 0.2, depth: 0.09, image: '/assets/symbiosis.png', owner: 'symbiosis', time: 30 }
+            { size: 6, speed: 4, adjust: 0.2, depth: 0.09, image: '/assets/symbiosis.png', owner: 'symbiosis', time: 30 },
+            { size: 7, speed: 4, adjust: 0.3, depth: 0.1, image: '/assets/resto.png', owner: 'resto', time: 1800 },
+            { size: 6, speed: 4, adjust: 0.1, depth: 0.1, image: '/assets/bmw.png', owner: 'bmw', time: 1800 },
+            { size: 6.5, speed: 4, adjust: 0.1, depth: 0.1, image: '/assets/1009656-Drapeau_de_la_Croix-Rouge.jpg', owner: 'croixrouge', time: 1800 },
+            { size: 6.5, speed: 4, adjust: 0.17, depth: 0.1, image: '/assets/spotify.jpg', owner: 'spotify', time: 1800 }
         ];
 
         // Use Promise.all to wait for all clocks to be created
@@ -1056,6 +1060,24 @@ window.addEventListener('storage', function (event) {
 document.addEventListener('keydown', (event) => {
     if (event.key === 'c') {
         createNewClock(7, 4, 0, 0.1, '/assets/wwf.jpg', "default", 30000);
+    }
+    if (event.key === 'r') {
+        createNewClock(7, 4, 0.3, 0.1, '/assets/resto.png', "default", 1800);
+    }
+    if (event.key === 'b') {
+        createNewClock(6, 4, 0.1, 0.1, '/assets/bmw.png', "default", 1800);
+    }
+    if (event.key === 'g') {
+        createNewClock(5.2, 4, 0.1, 0.08, '/assets/github_logo.png', "default", 30000);
+    }
+    if (event.key === 's') {
+        createNewClock(6, 4, 0.2, 0.09, '/assets/symbiosis.png', "default", 30000);
+    }
+    if (event.key === 'w') {
+        createNewClock(6.5, 4, 0.1, 0.1, '/assets/1009656-Drapeau_de_la_Croix-Rouge.jpg', "default", 1800);
+    }
+    if (event.key === 'p') {
+        createNewClock(6.5, 4, 0.17, 0.1, '/assets/spotify.jpg', "default", 1800);
     }
 });
 
